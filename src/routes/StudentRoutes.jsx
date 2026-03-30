@@ -145,6 +145,7 @@ export default function StudentRoutes() {
         p_exam_code: examConfig.code || "N/A",
         p_experiment: examConfig.experiment,
         p_student_result: String(studentValue),
+        p_actual_result: actualValue ? String(actualValue) : "N/A",
         p_unit: unit,
       };
       console.log("Submitting exam with payload:", rpcPayload);

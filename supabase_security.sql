@@ -220,7 +220,8 @@ CREATE OR REPLACE FUNCTION public.submit_exam_result(
   p_exam_code TEXT,
   p_experiment TEXT,
   p_student_result TEXT,
-  p_unit TEXT
+  p_unit TEXT,
+  p_actual_result TEXT DEFAULT NULL
 )
 RETURNS JSON
 LANGUAGE plpgsql
@@ -276,7 +277,7 @@ BEGIN
   ELSIF p_experiment = 'hooke' THEN
     v_actual_result := (v_params->>'hookeSpringConstant')::TEXT;
   ELSIF p_experiment = 'viscosity' THEN
-    v_actual_result := 'see_parameters';
+    v_actual_result := COALESCE(p_actual_result, 'see_parameters');
   ELSE
     v_actual_result := 'N/A';
   END IF;
