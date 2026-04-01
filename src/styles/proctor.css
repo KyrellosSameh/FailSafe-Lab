@@ -1,0 +1,311 @@
+﻿/* ═══════════════════════════════════════════════
+   AI PROCTORING - WARNING OVERLAY
+═══════════════════════════════════════════════ */
+.proctor-warning-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 29, 29, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: proctorOverlayIn 0.4s ease-out;
+}
+
+@keyframes proctorOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.proctor-warning-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+  padding: 48px 40px;
+  max-width: 480px;
+  width: 90%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  border-radius: 24px;
+  box-shadow:
+    0 0 80px rgba(239, 68, 68, 0.3),
+    inset 0 0 40px rgba(239, 68, 68, 0.05);
+  animation: proctorContentIn 0.5s ease-out 0.1s both;
+}
+
+@keyframes proctorContentIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.proctor-warning-icon {
+  color: #ef4444;
+  animation: proctorPulse 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.6));
+}
+
+@keyframes proctorPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+/* Countdown Circle */
+.proctor-countdown-circle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proctor-countdown-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.proctor-countdown-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 6;
+}
+
+.proctor-countdown-progress {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+
+.proctor-countdown-number {
+  font-family: "Outfit", sans-serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+  z-index: 1;
+}
+
+.proctor-warning-title {
+  font-family: "Outfit", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fca5a5;
+  direction: rtl;
+}
+
+.proctor-warning-text {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.8;
+  direction: rtl;
+}
+
+.proctor-warning-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.proctor-warning-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  border-radius: 3px;
+  transition: width 1s linear;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+/* ═══════════════════════════════════════════════
+   AI PROCTORING - INSTRUCTOR ALERTS
+═══════════════════════════════════════════════ */
+.proctor-alerts-section {
+  margin-bottom: 40px;
+}
+
+.proctor-alerts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.proctor-alerts-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.proctor-alert-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  animation: proctorBadgePulse 2s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes proctorBadgePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.8);
+  }
+}
+
+.proctor-alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.proctor-alert-card {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all 0.3s ease;
+  animation: proctorAlertSlideIn 0.4s ease-out both;
+}
+
+.proctor-alert-card:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.1);
+}
+
+.proctor-alert-card.read {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.08);
+  opacity: 0.6;
+}
+
+@keyframes proctorAlertSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.proctor-alert-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.proctor-alert-student {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proctor-alert-name {
+  font-weight: 600;
+  color: #fca5a5;
+  font-size: 1rem;
+}
+
+.proctor-alert-id {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.proctor-alert-time {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: left;
+  direction: ltr;
+}
+
+.proctor-alert-snapshot {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-height: 200px;
+  object-fit: cover;
+}
+
+.proctor-alert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.proctor-alert-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.proctor-alert-btn--dismiss {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.proctor-alert-btn--dismiss:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.proctor-no-alerts {
+  text-align: center;
+  padding: 32px;
+  color: #6b7280;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+

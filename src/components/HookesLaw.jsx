@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Scale,
   ArrowDown,
@@ -6,7 +6,10 @@ import {
   TriangleRight,
   CheckCircle2,
   XCircle,
+  Target,
+  Ruler,
 } from "lucide-react";
+import "../styles/components/HookesLaw.css";
 
 export default function HookesLaw({ examConfig, onSubmitResult }) {
   const [attachedMasses, setAttachedMasses] = useState([]); // array of { id, grams }
@@ -35,11 +38,15 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
   const generateNewSpring = useCallback(() => {
     if (examConfig) {
       setSpringConstant(examConfig.parameters.hookeSpringConstant);
-      const newMasses = Array.from({length: 4}, () => ({
-        grams: Math.floor(Math.random() * 41) + 10,
-        color: ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa"][Math.floor(Math.random()*5)],
+      const allOptions = [10, 15, 20, 25, 30];
+      const colors = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa"];
+      // Shuffle and pick 4 out of 5
+      const shuffled = allOptions.sort(() => Math.random() - 0.5).slice(0, 4);
+      const newMasses = shuffled.map((g, i) => ({
+        grams: g,
+        color: colors[i],
+        label: `${g} g`,
       }));
-      newMasses.forEach(m => m.label = `${m.grams} g`);
       setExamMasses(newMasses);
     } else {
       // Values typically between 10 and 50
@@ -189,127 +196,34 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
   };
 
   return (
-    <div
-      className="glass-panel p-6 w-full max-w-7xl animate-fade-in"
-      style={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
+    <div className="glass-panel p-6 w-full max-w-7xl animate-fade-in hookes-law-container">
+      <div className="hookes-law-header">
         <div>
-          <h2
-            style={{
-              fontSize: "2rem",
-              marginBottom: "8px",
-              color: "var(--primary)",
-            }}
-          >
+          <h2 className="hookes-law-title">
             Hooke's Law
           </h2>
-          <p style={{ color: "var(--text-muted)" }}>
+          <p className="hookes-law-subtitle">
             Investigate the elasticity and calculate the unknown spring
             constant.
           </p>
         </div>
         {!examConfig && (
-          <div
-            style={{
-              padding: "12px 24px",
-              background: "rgba(59, 130, 246, 0.1)",
-              borderRadius: "12px",
-              border: "1px solid var(--primary)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: 600,
-                fontFamily: "Outfit",
-              }}
-            >
+          <div className="hookes-law-formula">
+            <span>
               k = F / x
             </span>
           </div>
         )}
       </div>
 
-      <div
-        className="responsive-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(450px, 2fr) minmax(320px, 1fr)",
-          gap: "32px",
-          marginTop: "16px",
-        }}
-      >
+      <div className="responsive-grid hookes-law-grid">
         {/* Simulation Area */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "relative",
-            height: "700px",
-            display: "flex",
-            justifyContent: "center",
-            overflow: "hidden",
-            background: "rgba(0,0,0,0.3)",
-          }}
-        >
+        <div className="glass-panel hookes-law-sim-area">
           {/* Top Support */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "200px",
-              height: "20px",
-              background: "linear-gradient(to bottom, #475569, #334155)",
-              borderRadius: "0 0 8px 8px",
-              boxShadow: "0 4px 6px rgba(0,0,0,0.5)",
-              zIndex: 10,
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-10px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "10px",
-                height: "10px",
-                background: "#94a3b8",
-                borderRadius: "50%",
-              }}
-            ></div>
-          </div>
+          <div className="hookes-law-top-support"></div>
 
           {/* Ruler */}
-          <div
-            style={{
-              position: "absolute",
-              left: "calc(50% - 140px)",
-              top: "20px",
-              width: "80px",
-              height: "660px",
-              background: "linear-gradient(to right, #2d1f00, #3d2a00)",
-              border: "1px solid #a16207",
-              borderRadius: "4px",
-              display: "flex",
-              flexDirection: "column",
-              zIndex: 10,
-            }}
-          >
+          <div className="hookes-law-ruler">
             {Array.from({ length: 51 }, (_, cm) => {
               const val = cm / 100;
               const isLarge = cm % 10 === 0;
@@ -407,18 +321,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
           </div>
 
           {/* Spring Matrix */}
-          <div
-            style={{
-              position: "absolute",
-              top: "20px",
-              left: "60%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              zIndex: 5,
-            }}
-          >
+          <div className="hookes-law-spring-matrix">
             <svg
               width="100"
               height={totalSpringLength + 20}
@@ -540,39 +443,17 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
         </div>
 
         {/* Right Side: Modules */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div className="hookes-law-right-panel">
           {/* Mass Tray */}
-          <div className="glass-panel" style={{ padding: "20px" }}>
-            <h3
-              style={{
-                marginBottom: "4px",
-                fontSize: "1rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
+          <div className="glass-panel hookes-law-module">
+            <h3 className="hookes-law-module-title">
               <Scale size={18} color="var(--primary)" /> Mass Tray
             </h3>
-            <p
-              style={{
-                color: "var(--text-muted)",
-                fontSize: "0.78rem",
-                marginBottom: "16px",
-              }}
-            >
+            <p className="hookes-law-module-subtitle">
               Drag a mass and drop it on the spring hook
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "10px",
-                justifyContent: "center",
-                marginBottom: "16px",
-              }}
-            >
+            <div className="mass-button-container">
               {activeMasses.map((mt) => (
                 <div
                   key={mt.grams}
@@ -732,33 +613,20 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
               >
                 Live Reading
               </h3>
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    paddingBottom: "6px",
-                    borderBottom: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <span
-                    style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
-                  >
+              <div className="live-reading-grid">
+                <div className="live-reading-item">
+                  <span className="live-reading-label">
                     Weight (F = m×g):
                   </span>
-                  <span style={{ fontWeight: "bold", color: "#ef4444" }}>
+                  <span className="live-reading-value force">
                     {force.toFixed(3)} N
                   </span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span
-                    style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
-                  >
+                <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "8px" }}>
+                  <span className="live-reading-label">
                     Displacement (x):
                   </span>
-                  <span style={{ fontWeight: "bold", color: "#f59e0b" }}>
+                  <span className="live-reading-value disp">
                     {(liveDisplacement * 100).toFixed(1)} cm
                   </span>
                 </div>

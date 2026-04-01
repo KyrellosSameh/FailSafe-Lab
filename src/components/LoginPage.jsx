@@ -42,7 +42,7 @@ function LoginPage({ onBack, onLogin }) {
 
       // Compare password (bcrypt only)
       if (!data.password || !data.password.startsWith("$2")) {
-        setError("خطأ في حساب المعيد. يرجى التواصل مع المسؤول.");
+        setError("خطأ في حساب الاستاذ. يرجى التواصل مع المسؤول.");
         setLoading(false);
         return;
       }

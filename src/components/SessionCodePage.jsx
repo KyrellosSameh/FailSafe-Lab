@@ -242,7 +242,7 @@ function SessionCodePage({ onBack, onJoin }) {
       if (rpcError) throw rpcError;
 
       if (result.status === "no_exams_available") {
-        setError("عفواً، لا توجد أي اختبارات متاحة حالياً. يرجى إبلاغ المعيد.");
+        setError("عفواً، لا توجد أي اختبارات متاحة حالياً. يرجى إبلاغ الاستاذ.");
         setLoading(false);
         return;
       }
@@ -755,7 +755,7 @@ function SessionCodePage({ onBack, onJoin }) {
                       <strong>لا يمكنك الدخول مرة أخرى.</strong>
                       <br />
                       <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                        يرجى التواصل مع المعيد في حالة وجود مشكلة تقنية.
+                        يرجى التواصل مع الاستاذ في حالة وجود مشكلة تقنية.
                       </span>
                     </p>
                   </div>

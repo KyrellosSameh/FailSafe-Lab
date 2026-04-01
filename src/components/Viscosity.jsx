@@ -8,6 +8,8 @@ import {
   Ruler,
   Crosshair,
 } from "lucide-react";
+import "../styles/components/Viscosity.css";
+
 
 export default function Viscosity({ examConfig, onSubmitResult }) {
   const g = 9.8;
@@ -335,49 +337,18 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
     const exactThimble = (micrometerGap % 0.5) * 100;
 
     return (
-      <div
-        className="glass-panel"
-        style={{
-          padding: "20px",
-          background: "rgba(245, 158, 11, 0.05)",
-          border: "1px solid rgba(245, 158, 11, 0.2)",
-        }}
-      >
-        <h3
-          style={{
-            fontSize: "1.2rem",
-            marginBottom: "12px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            color: "#f59e0b",
-          }}
-        >
+      <div className="glass-panel viscosity-micrometer">
+        <h3 className="viscosity-micrometer-title">
           <Crosshair size={20} /> Manual Micrometer
         </h3>
-        <p
-          style={{
-            fontSize: "0.85rem",
-            color: "var(--text-muted)",
-            marginBottom: "12px",
-          }}
-        >
+        <p className="viscosity-micrometer-subtitle">
           Adjust the gap until it closes on the ball. Read the{" "}
           <strong>Main Scale</strong> (mm) and the{" "}
           <strong>Circular Scale</strong> (0.01 mm) separately below.
         </p>
 
         {/* Visual Representation of Jaws/Object */}
-        <div
-          style={{
-            position: "relative",
-            height: "60px",
-            marginBottom: "20px",
-            background: "rgba(0,0,0,0.2)",
-            borderRadius: "8px",
-            overflow: "hidden",
-          }}
-        >
+        <div className="viscosity-micrometer-visual">
           <div
             style={{
               position: "absolute",
@@ -425,32 +396,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
           ></div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-            marginBottom: "20px",
-          }}
-        >
+        <div className="viscosity-micrometer-scales">
           {/* Main Scale SVG */}
-          <div
-            style={{
-              background: "#e2e8f0",
-              borderRadius: "8px",
-              border: "1px solid #cbd5e1",
-              padding: "16px",
-              overflowX: "auto",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.85rem",
-                fontWeight: "bold",
-                color: "#334155",
-                marginBottom: "8px",
-              }}
-            >
+          <div className="viscosity-micrometer-scale">
+            <div className="viscosity-micrometer-scale-title">
               Main Scale (Sleeve) - 0.5 mm steps
             </div>
             <svg width={sleeveWidth + 40} height="60">
@@ -522,24 +471,8 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
           </div>
 
           {/* Circular Scale SVG */}
-          <div
-            style={{
-              background: "#e2e8f0",
-              borderRadius: "8px",
-              border: "1px solid #cbd5e1",
-              padding: "16px",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.85rem",
-                fontWeight: "bold",
-                color: "#334155",
-                marginBottom: "8px",
-              }}
-            >
+          <div className="viscosity-micrometer-scale">
+            <div className="viscosity-micrometer-scale-title">
               Circular Scale (Thimble) - 0.01 mm steps
             </div>
             <svg width="100%" height="60">
@@ -607,10 +540,8 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
         </div>
 
         {/* Slider Control */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span
-            style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }}
-          >
+        <div className="viscosity-micrometer-controls">
+          <span style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }}>
             Close Jaws
           </span>
           <input
@@ -621,12 +552,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             step="0.01"
             value={micrometerGap}
             onChange={handleMicrometerChange}
-            style={{
-              flex: 1,
-              direction: "ltr",
-              accentColor: "#f59e0b",
-              height: "6px",
-            }}
+            className="viscosity-micrometer-range"
           />
           <span
             style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }}
@@ -639,85 +565,25 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
   };
 
   return (
-    <div
-      className="glass-panel p-6 w-full max-w-6xl mx-auto animate-fade-in"
-      style={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+    <div className="glass-panel viscosity-container animate-fade-in w-full max-w-6xl mx-auto">
+      <div className="viscosity-header">
         <div>
-          <h2
-            style={{
-              fontSize: "2rem",
-              marginBottom: "8px",
-              color: "var(--primary)",
-            }}
-          >
+          <h2 className="viscosity-title">
             Viscosity Evaluation
           </h2>
-          <p style={{ color: "var(--text-muted)" }}>
+          <p className="viscosity-subtitle">
             Measure the diameter of 5 different balls, time their fall, and
             calculate the viscosity coefficient of the mystery fluid.
           </p>
         </div>
       </div>
 
-      <div
-        className="responsive-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(300px, 1fr) 400px",
-          gap: "24px",
-        }}
-      >
+      <div className="viscosity-grid">
         {/* Simulation Area */}
-        <div
-          className="glass-panel"
-          style={{
-            position: "relative",
-            height: "550px",
-            background: "rgba(0,0,0,0.3)",
-            padding: "20px",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "24px",
-              left: "24px",
-              zIndex: 10,
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                background: "rgba(15, 23, 42, 0.8)",
-                padding: "12px 20px",
-                borderRadius: "12px",
-                border: "1px solid var(--border-color)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                  color: "var(--text-muted)",
-                  marginBottom: "4px",
-                }}
-              >
+        <div className="glass-panel viscosity-sim-area">
+          <div className="viscosity-hud">
+            <div className="viscosity-stopwatch">
+              <div className="viscosity-stopwatch-label">
                 Stopwatch
               </div>
               <div
@@ -733,39 +599,13 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 {liveTime.toFixed(2)} s
               </div>
             </div>
-            <div
-              style={{
-                fontSize: "0.9rem",
-                color: "#10b981",
-                background: "rgba(16, 185, 129, 0.1)",
-                padding: "8px",
-                borderRadius: "8px",
-              }}
-            >
+            <div className="viscosity-sim-message">
               {simMessage}
             </div>
           </div>
 
-          <div
-            style={{
-              position: "relative",
-              display: "flex",
-              gap: "20px",
-              marginTop: "20px",
-            }}
-          >
-            <div
-              style={{
-                width: "40px",
-                height: "400px",
-                background: "#fef08a",
-                borderRadius: "4px",
-                position: "relative",
-                border: "1px solid #ca8a04",
-                color: "#854d0e",
-                fontSize: "10px",
-              }}
-            >
+          <div className="viscosity-physics-wrapper">
+            <div className="viscosity-ruler">
               {[0, 20, 40, 60, 80, 100].map((cm, i) => (
                 <div
                   key={i}
@@ -1008,17 +848,8 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
       </div>
 
       {/* Evaluation Table */}
-      <div
-        className="glass-panel"
-        style={{ padding: "24px", overflowX: "auto" }}
-      >
-        <h3
-          style={{
-            fontSize: "1.5rem",
-            marginBottom: "16px",
-            color: "var(--primary)",
-          }}
-        >
+      <div className="glass-panel" style={{ padding: "24px", overflowX: "auto" }}>
+        <h3 className="viscosity-title" style={{ fontSize: "1.5rem", marginBottom: "16px" }}>
           Data Collection & Calculation
         </h3>
 

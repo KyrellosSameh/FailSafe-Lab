@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Users, Save, CheckCircle2, Camera, X } from "lucide-react";
+import { ArrowLeft, Users, Save, CheckCircle2, Camera, X, Printer } from "lucide-react";
 import { supabase } from "../supabaseClient";
+import "../styles/components/StudentResultsPage.css";
+
 
 function StudentResultsPage({ instructorId, onBack }) {
   const [results, setResults] = useState([]);
@@ -23,7 +25,8 @@ function StudentResultsPage({ instructorId, onBack }) {
           .order("created_at", { ascending: false });
 
         if (!error && data) {
-          setResults(data);
+          const processed = data.map(r => ({ ...r, _originalGrade: r.instructor_grade }));
+          setResults(processed);
         }
       } catch (err) {
         console.error("Error fetching results:", err);
@@ -40,20 +43,24 @@ function StudentResultsPage({ instructorId, onBack }) {
     setResults(newResults);
   };
 
-  const saveGrades = async () => {
+  const saveSingleGrade = async (index, req) => {
+    if (!req.instructor_grade) return;
     try {
-      // Update each result's grade in Supabase
-      for (const result of results) {
-        await supabase
-          .from("results")
-          .update({ instructor_grade: result.instructor_grade || "" })
-          .eq("id", result.id);
-      }
+      const { error } = await supabase
+        .from("results")
+        .update({ instructor_grade: req.instructor_grade })
+        .eq("id", req.id);
+      
+      if (error) throw error;
+      
+      const newResults = [...results];
+      newResults[index]._originalGrade = req.instructor_grade;
+      setResults(newResults);
       setSavedMessage(true);
       setTimeout(() => setSavedMessage(false), 3000);
     } catch (err) {
-      console.error("Error saving grades:", err);
-      alert("حدث خطأ أثناء حفظ التقييمات.");
+      console.error("Error saving grade:", err);
+      alert("حدث خطأ أثناء حفظ التقييم.");
     }
   };
 
@@ -98,6 +105,191 @@ function StudentResultsPage({ instructorId, onBack }) {
     } finally {
       setLoadingImages(false);
     }
+  };
+
+  const handlePrintPdf = (req) => {
+    const finalGrade = req.instructor_grade ? req.instructor_grade : "لم يتم التقييم بعد";
+    
+    // Extracting a simpler string if student_result is JSON
+    let studentResultDisplay = req.student_result;
+    try {
+      if (studentResultDisplay.includes("{")) {
+        const obj = JSON.parse(studentResultDisplay);
+        if (obj.avg !== undefined) {
+          studentResultDisplay = `${obj.avg} ${req.unit || ""}`;
+        }
+      } else {
+        if (req.student_result !== "--" && req.student_result !== "--kicked--" && req.student_result !== "--quit--") {
+          studentResultDisplay = `${studentResultDisplay} ${req.unit || ""}`;
+        }
+      }
+    } catch(e) {}
+
+    const htmlContent = `
+      <html dir="rtl" lang="ar">
+        <head>
+          <title>تقرير نتيجة الطالب - ${req.student_name}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { color: #1e3a8a; margin: 0; }
+            .header p { color: #6b7280; font-size: 1.1rem; }
+            .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .info-table th, .info-table td { padding: 12px; border: 1px solid #e5e7eb; text-align: right; font-size: 1.1rem; }
+            .info-table th { background-color: #f3f4f6; width: 30%; color: #4b5563; }
+            .footer { text-align: center; margin-top: 50px; font-size: 0.9rem; color: #9ca3af; }
+            .grade { font-size: 1.5rem; font-weight: bold; color: #10b981; }
+            @media print {
+              body { padding: 0; margin: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>إفادة نتيجة معمل الفيزياء</h1>
+            <p>تقرير رسمي بنتيجة الطالب في الاختبار العملي</p>
+          </div>
+          
+          <table class="info-table">
+            <tr>
+              <th>الرقم الأكاديمي (ID)</th>
+              <td>${req.student_id}</td>
+            </tr>
+            <tr>
+              <th>اسم الطالب</th>
+              <td>${req.student_name}</td>
+            </tr>
+            <tr>
+              <th>التجربة المقررة</th>
+              <td>${req.experiment}</td>
+            </tr>
+            <tr>
+              <th>كود الاختبار</th>
+              <td>${req.exam_code}</td>
+            </tr>
+            <tr>
+              <th>الدرجة الممنوحة</th>
+              <td class="grade">${finalGrade}</td>
+            </tr>
+          </table>
+          
+          <div class="footer">
+            <p>تم استخراج هذا التقرير تلقائياً من منصة معمل الفيزياء الافتراضي.</p>
+            <p>تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    // Create an invisible iframe to handle printing seamlessly
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
+  };
+
+  const handlePrintAllPdf = () => {
+    if (!results || results.length === 0) {
+      alert("لا توجد نتائج لطباعتها.");
+      return;
+    }
+
+    const rowsHtml = results.map(req => {
+      const finalGrade = req.instructor_grade ? req.instructor_grade : "-";
+      return `
+        <tr>
+          <td dir="ltr" style="text-align: right;">${req.student_id}</td>
+          <td>${req.student_name}</td>
+          <td>${req.experiment}</td>
+          <td>${req.exam_code}</td>
+          <td style="font-weight: bold; color: #10b981;">${finalGrade}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const htmlContent = `
+      <html dir="rtl" lang="ar">
+        <head>
+          <title>سجل درجات الطلاب المجمع</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+            .header { text-align: center; border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { color: #1e3a8a; margin: 0; }
+            .header p { color: #6b7280; font-size: 1.1rem; }
+            .data-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .data-table th, .data-table td { padding: 10px; border: 1px solid #e5e7eb; text-align: center; font-size: 0.95rem; }
+            .data-table th { background-color: #f3f4f6; color: #4b5563; font-weight: bold; }
+            .footer { text-align: center; margin-top: 50px; font-size: 0.9rem; color: #9ca3af; }
+            @media print {
+              body { padding: 0; margin: 20px; }
+              @page { size: landscape; margin: 1cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>سجل درجات الطلاب المجمع</h1>
+            <p>تقرير رسمي شامل بنتائج جميع الطلاب في الاختبارات العملية</p>
+          </div>
+          
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>الرقم الأكاديمي (ID)</th>
+                <th>اسم الطالب</th>
+                <th>التجربة المقررة</th>
+                <th>كود الاختبار</th>
+                <th>الدرجة الممنوحة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            <p>تم استخراج هذا التقرير المجمع تلقائياً من منصة معمل الفيزياء الافتراضي.</p>
+            <p>تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+        </body>
+      </html>
+    `;
+    
+    // Create an invisible iframe to handle printing seamlessly
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
   };
 
   const renderResultData = (dataStr, unit, isStudent) => {
@@ -249,93 +441,46 @@ function StudentResultsPage({ instructorId, onBack }) {
   };
 
   return (
-    <div className="app-container" style={{ background: "var(--bg-main)" }}>
+    <div className="app-container" style={{ background: "var(--bg-main)", flexDirection: "column" }}>
       {/* Top Header */}
-      <header
-        style={{
-          padding: "24px 32px",
-          borderBottom: "1px solid var(--border-color)",
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(10px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <button
-            onClick={onBack}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid var(--border-color)",
-              color: "var(--text-main)",
-              borderRadius: "8px",
-              padding: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
+      <header className="results-header-container">
+        <div className="results-header-content">
           <div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
+            <h2 className="results-title">
               نتائج الطلاب
             </h2>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
-              عرض درجات الامتحانات وتقييمها
+            <p className="results-subtitle">
+              عرض درجات الامتحانات وتقييمها للحفظ أو للطباعة المجمعة
             </p>
           </div>
+          <button
+            onClick={onBack}
+            className="results-back-btn"
+          >
+            <ArrowLeft size={20} />
+            العودة للوحة التحكم
+          </button>
         </div>
-
-        <button
-          onClick={saveGrades}
-          style={{
-            background: "var(--primary)",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            padding: "10px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "background 0.2s",
-          }}
-        >
-          {savedMessage ? <CheckCircle2 size={18} /> : <Save size={18} />}
-          {savedMessage ? "تم الحفظ" : "حفظ التقييمات"}
-        </button>
       </header>
 
       {/* Main Content */}
-      <main
-        style={{
-          padding: "40px",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          width: "100%",
-        }}
-      >
-        <div
-          className="glass-panel"
-          style={{ padding: "24px", overflowX: "auto" }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "24px",
-              color: "var(--primary)",
-            }}
-          >
-            <Users size={24} />
-            <h3 style={{ margin: 0, fontSize: "1.2rem", color: "#fff" }}>
-              سجل اختبارات العملي
-            </h3>
+      <main className="results-main">
+        <div className="glass-panel results-panel">
+          <div className="results-panel-header">
+            <div className="results-panel-title">
+              <Users size={24} />
+              <h3>
+                سجل اختبارات العملي
+              </h3>
+            </div>
+            
+            <button
+              onClick={handlePrintAllPdf}
+              className="results-print-btn"
+            >
+              <Printer size={18} />
+              طباعة جميع النتائج (PDF)
+            </button>
           </div>
 
           {loading ? (
@@ -446,6 +591,16 @@ function StudentResultsPage({ instructorId, onBack }) {
                   >
                     الدرجة
                   </th>
+                  <th
+                    style={{
+                      padding: "16px",
+                      borderBottom: "1px solid var(--border-color)",
+                      fontWeight: 500,
+                      textAlign: "center"
+                    }}
+                  >
+                    إجراءات
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -515,25 +670,76 @@ function StudentResultsPage({ instructorId, onBack }) {
                         معاينة
                       </button>
                     </td>
-                    <td style={{ padding: "16px" }}>
-                      <input
-                        type="text"
-                        placeholder="0/10"
-                        value={req.instructor_grade || ""}
-                        onChange={(e) =>
-                          handleGradeChange(index, e.target.value)
-                        }
+                    <td style={{ padding: "16px", minWidth: "120px" }}>
+                      {req._originalGrade ? (
+                        <span style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#10b981", display: "block", textAlign: "center" }}>
+                          {req.instructor_grade}
+                        </span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            placeholder="0/10"
+                            value={req.instructor_grade || ""}
+                            onChange={(e) =>
+                              handleGradeChange(index, e.target.value)
+                            }
+                            style={{
+                              width: "80px",
+                              padding: "8px",
+                              background: "rgba(0,0,0,0.3)",
+                              border: "1px solid var(--glass-border)",
+                              color: "#fff",
+                              borderRadius: "8px",
+                              textAlign: "center",
+                              outline: "none",
+                            }}
+                          />
+                          <button
+                            onClick={() => saveSingleGrade(index, req)}
+                            style={{
+                              background: "rgba(16, 185, 129, 0.2)",
+                              color: "#10b981",
+                              border: "none",
+                              borderRadius: "6px",
+                              padding: "4px 12px",
+                              fontSize: "0.8rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            <Save size={14} />
+                            حفظ
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "16px", textAlign: "center" }}>
+                      <button
+                        onClick={() => handlePrintPdf(req)}
+                        title="طبع التقرير کـ PDF"
                         style={{
-                          width: "80px",
-                          padding: "8px",
-                          background: "rgba(0,0,0,0.3)",
-                          border: "1px solid var(--glass-border)",
-                          color: "#fff",
-                          borderRadius: "8px",
-                          textAlign: "center",
-                          outline: "none",
+                          background: "rgba(16, 185, 129, 0.1)",
+                          color: "#10b981",
+                          border: "1px solid #10b981",
+                          borderRadius: "6px",
+                          padding: "6px 12px",
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          margin: "0 auto",
+                          transition: "all 0.2s",
+                          whiteSpace: "nowrap",
                         }}
-                      />
+                      >
+                        <Printer size={14} />
+                        طباعة
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -545,63 +751,27 @@ function StudentResultsPage({ instructorId, onBack }) {
 
       {/* Proctoring Modal */}
       {proctoringModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.85)",
-            backdropFilter: "blur(5px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            className="glass-panel"
-            style={{
-              width: "90%",
-              maxWidth: "900px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              padding: "24px",
-              position: "relative",
-            }}
-          >
-            <button
-              onClick={() => setProctoringModalOpen(false)}
-              style={{
-                position: "absolute",
-                top: "24px",
-                right: "24px",
-                background: "transparent",
-                border: "none",
-                color: "#ef4444",
-                cursor: "pointer",
-              }}
-            >
-              <X size={24} />
-            </button>
-            <h3
-              style={{
-                margin: "0 0 20px 0",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-                paddingBottom: "16px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <Camera size={20} color="var(--primary)" />
-              لقطات المراقبة:{" "}
-              <span style={{ color: "var(--primary)", fontWeight: 600 }}>
-                {selectedStudent}
-              </span>
-            </h3>
-
+        <div className="proctor-modal-overlay">
+          <div className="proctor-modal-content">
+            <div className="proctor-modal-header">
+              <div className="proctor-modal-title">
+                <Camera size={20} color="var(--primary)" />
+                <h3>
+                  لقطات المراقبة:{" "}
+                  <span style={{ color: "var(--primary)", fontWeight: 600 }}>
+                    {selectedStudent}
+                  </span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setProctoringModalOpen(false)}
+                className="proctor-modal-close"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="proctor-modal-body">
             {loadingImages ? (
               <p
                 style={{
@@ -628,59 +798,29 @@ function StudentResultsPage({ instructorId, onBack }) {
                 SEB).
               </p>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                  gap: "16px",
-                }}
-              >
+              <div className="proctor-grid">
                 {proctoringImages.map((img, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      background: "#000",
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      position: "relative",
-                    }}
-                  >
-                    <img
-                      src={img.url}
-                      alt={`Snapshot ${idx}`}
-                      style={{
-                        width: "100%",
-                        height: "150px",
-                        display: "block",
-                        objectFit: "cover",
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: "8px",
-                        fontSize: "0.8rem",
-                        color: "#fff",
-                        textAlign: "center",
-                        background: "rgba(0,0,0,0.7)",
-                        backdropFilter: "blur(4px)",
-                      }}
-                    >
-                      اللقطة #{idx + 1} &nbsp; (
-                      {new Date(img.timestamp).toLocaleTimeString("ar-EG", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      )
+                  <div key={idx} className="proctor-image-card">
+                    <div className="proctor-image-wrapper">
+                      <img
+                        src={img.url}
+                        alt={`Snapshot ${idx}`}
+                      />
+                    </div>
+                    <div className="proctor-image-footer">
+                      <span>اللقطة #{idx + 1}</span>
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {new Date(img.timestamp).toLocaleTimeString("ar-EG", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+            </div>
           </div>
         </div>
       )}

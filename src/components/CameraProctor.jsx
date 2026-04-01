@@ -401,7 +401,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
               <br />
               وإلا سيتم{" "}
               <strong style={{ color: "#ff4444" }}>
-                إنهاء الامتحان وإبلاغ المعيد
+                إنهاء الامتحان وإبلاغ الاستاذ
               </strong>{" "}
               تلقائياً
             </p>

@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Beaker, LogOut, Activity, Atom, Scale, TestTube } from "lucide-react";
+import { ShieldCheck, LogOut, Activity, Atom, Scale, TestTube } from "lucide-react";
 
 import OhmsLaw from "../components/OhmsLaw";
 import WheatstoneBridge from "../components/WheatstoneBridge";
@@ -48,11 +48,11 @@ export default function StudentLabLayout({
               color: "white",
             }}
           >
-            <Beaker size={24} />
+            <ShieldCheck size={24} />
           </div>
           <div>
             <h1 style={{ fontSize: "1.2rem", lineHeight: "1.2" }}>
-              Physics Lab
+              FailSafe Lab
             </h1>
             <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
               Virtual Simulator
@@ -107,7 +107,7 @@ export default function StudentLabLayout({
               if (examConfig && !examConfig.examComplete) {
                 if (
                   window.confirm(
-                    "تحذير هام: هل أنت متأكد من رغبتك في إنهاء الامتحان والانسحاب؟\nسيتم إرسال إشعار للمعيد بانسحابك ولن تتمكن من العودة للاختبار نهائياً."
+                    "تحذير هام: هل أنت متأكد من رغبتك في إنهاء الامتحان والانسحاب؟\nسيتم إرسال إشعار للاستاذ بانسحابك ولن تتمكن من العودة للاختبار نهائياً."
                   )
                 ) {
                   handleExamSubmit("--quit--", "N/A");

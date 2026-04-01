@@ -2,7 +2,7 @@ import {
   GraduationCap,
   BookOpen,
   Zap,
-  FlaskConical,
+  ShieldCheck,
   Microscope,
   Shield,
 } from "lucide-react";
@@ -19,10 +19,10 @@ function LandingPage() {
         {/* Logo / Title */}
         <div className="landing-logo">
           <div className="logo-icon-wrapper">
-            <FlaskConical size={40} strokeWidth={1.5} />
+            <ShieldCheck size={40} strokeWidth={1.5} />
           </div>
           <div className="logo-text">
-            <h1>Physics Lab</h1>
+            <h1>FailSafe Lab</h1>
             <span>Virtual Simulator</span>
           </div>
         </div>
@@ -51,8 +51,8 @@ function LandingPage() {
               <GraduationCap size={28} strokeWidth={1.8} />
             </div>
             <div className="btn-text">
-              <span className="btn-title">معيد / دكتور</span>
-              <span className="btn-subtitle">Instructor / Doctor Login</span>
+              <span className="btn-title">استاذ</span>
+              <span className="btn-subtitle">Instructor Login</span>
             </div>
             <Zap size={16} className="btn-arrow" />
           </button>

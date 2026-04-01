@@ -20,7 +20,7 @@ function CreateExamPage({ instructorId, onBack }) {
   // Specific inputs
   const [ohmResistance, setOhmResistance] = useState(50);
   const [wheatstoneUnknown, setWheatstoneUnknown] = useState(45);
-  const [hookeSpringConstant, setHookeSpringConstant] = useState(50);
+  const [hookeSpringConstant, setHookeSpringConstant] = useState(2);
   const [viscosityLiquid, setViscosityLiquid] = useState("Glycerin");
   const [viscosityBalls, setViscosityBalls] = useState([2, 3, 4, 5, 6]);
 
@@ -113,7 +113,7 @@ function CreateExamPage({ instructorId, onBack }) {
           Math.floor(Math.random() * (500 - 10 + 1)) + 10;
       } else if (randExp === "hooke") {
         params.hookeSpringConstant =
-          Math.floor(Math.random() * (200 - 10 + 1)) + 10;
+          Math.round((Math.random() * 3.5 + 1) * 2) / 2; // 1 to 4.5 step 0.5
       } else if (randExp === "viscosity") {
         params.viscosityLiquid =
           liquids[Math.floor(Math.random() * liquids.length)];
@@ -218,8 +218,9 @@ function CreateExamPage({ instructorId, onBack }) {
               <input
                 id="springConst"
                 type="number"
-                min="10"
-                max="200"
+                min="0.5"
+                max="5"
+                step="0.5"
                 value={hookeSpringConstant}
                 onChange={(e) => setHookeSpringConstant(Number(e.target.value))}
               />
@@ -231,7 +232,7 @@ function CreateExamPage({ instructorId, onBack }) {
                 marginTop: "4px",
               }}
             >
-              حدد قيمة ثابت الزنبرك للتجربة (10 - 200 N/m)
+              حدد قيمة ثابت الزنبرك للتجربة (0.5 - 5 N/m) — متناسبة مع أوزان 10-30 جرام
             </p>
           </div>
         );

@@ -12,6 +12,8 @@ import {
 import { supabase } from "../supabaseClient";
 import bcrypt from "bcryptjs";
 import emailjs from "@emailjs/browser";
+import "../styles/components/AdminDashboard.css";
+
 
 function AdminDashboard({ onBack }) {
   const [activeSection, setActiveSection] = useState("addInstructor");
@@ -72,7 +74,7 @@ function AdminDashboard({ onBack }) {
         .limit(1);
         
       if (existingInstr && existingInstr.length > 0) {
-        showMessage("error", `المعيد "${instrUsername.trim()}" موجود بالفعل.`);
+        showMessage("error", `الاستاذ "${instrUsername.trim()}" موجود بالفعل.`);
         setLoading(false);
         return;
       }
@@ -87,7 +89,7 @@ function AdminDashboard({ onBack }) {
       if (error) throw error;
       showMessage(
         "success",
-        `تم إضافة المعيد "${instrUsername.trim()}" بنجاح!`,
+        `تم إضافة الاستاذ "${instrUsername.trim()}" بنجاح!`,
       );
       setInstrUsername("");
       setInstrPassword("");
@@ -109,7 +111,7 @@ function AdminDashboard({ onBack }) {
       !stuPassword.trim() ||
       !stuInstructor
     ) {
-      showMessage("error", "يرجى ملء جميع الحقول واختيار المعيد.");
+      showMessage("error", "يرجى ملء جميع الحقول واختيار الاستاذ.");
       return;
     }
     setLoading(true);
@@ -197,12 +199,12 @@ function AdminDashboard({ onBack }) {
 
   // ── Delete ──
   const handleDeleteInstructor = async (id) => {
-    if (!confirm("هل أنت متأكد من حذف هذا المعيد بشكل نهائي؟ (سيتم حذف جميع الطلاب والاختبارات المرتبطة به)")) return;
+    if (!confirm("هل أنت متأكد من حذف هذا الاستاذ بشكل نهائي؟ (سيتم حذف جميع الطلاب والاختبارات المرتبطة به)")) return;
     setLoading(true);
     try {
       const { error } = await supabase.rpc("admin_delete_instructor", { p_instructor_id: id });
       if (error) throw error;
-      showMessage("success", "تم حذف المعيد وجميع بياناته بنجاح!");
+      showMessage("success", "تم حذف الاستاذ وجميع بياناته بنجاح!");
       fetchData();
     } catch (err) {
       console.error(err);
@@ -276,11 +278,11 @@ function AdminDashboard({ onBack }) {
   const sections = [
     {
       id: "addInstructor",
-      label: "إضافة معيد",
+      label: "إضافة استاذ",
       icon: <GraduationCap size={20} />,
     },
     { id: "addStudent", label: "إضافة طالب", icon: <UserPlus size={20} /> },
-    { id: "viewInstructors", label: "عرض المعيدين", icon: <Users size={20} /> },
+    { id: "viewInstructors", label: "عرض الاساتذة", icon: <Users size={20} /> },
     { id: "viewStudents", label: "عرض الطلاب", icon: <Search size={20} /> },
   ];
 
@@ -305,51 +307,18 @@ function AdminDashboard({ onBack }) {
   };
 
   return (
-    <div
-      style={{
-        background: "#0f172a",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div className="admin-layout">
       {/* Top Navbar */}
-      <nav
-        style={{
-          padding: "20px 40px",
-          background: "rgba(15, 23, 42, 0.8)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #38bdf8, #3b82f6)",
-              padding: "10px",
-              borderRadius: "12px",
-              color: "white",
-              boxShadow: "0 4px 15px rgba(56, 189, 248, 0.3)",
-            }}
-          >
+      <nav className="admin-navbar">
+        <div className="admin-nav-brand">
+          <div className="admin-nav-icon">
             <Shield size={28} />
           </div>
           <div>
-            <h1
-              style={{
-                fontSize: "1.6rem",
-                fontWeight: 600,
-                margin: 0,
-                color: "#f8fafc",
-                letterSpacing: "-0.5px",
-              }}
-            >
+            <h1 className="admin-nav-title">
               لوحة تحكم الأدمن
             </h1>
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+            <span className="admin-nav-subtitle">
               Admin Control Panel
             </span>
           </div>
@@ -357,70 +326,21 @@ function AdminDashboard({ onBack }) {
 
         <button
           onClick={onBack}
-          style={{
-            background: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
-            color: "#f87171",
-            borderRadius: "8px",
-            padding: "10px 16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: 500,
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")
-          }
+          className="admin-logout-btn"
         >
           <LogOut size={18} />
           <span>تسجيل الخروج</span>
         </button>
       </nav>
 
-      <div style={{ display: "flex", flex: 1 }}>
+      <div className="admin-body">
         {/* Sidebar */}
-        <aside
-          style={{
-            width: "260px",
-            background: "rgba(30, 41, 59, 0.4)",
-            borderRight: "1px solid rgba(255,255,255,0.05)",
-            padding: "24px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
+        <aside className="admin-sidebar">
           {sections.map((sec) => (
             <button
               key={sec.id}
               onClick={() => setActiveSection(sec.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                width: "100%",
-                padding: "14px 18px",
-                borderRadius: "12px",
-                border: "none",
-                cursor: "pointer",
-                background:
-                  activeSection === sec.id
-                    ? "rgba(56, 189, 248, 0.15)"
-                    : "transparent",
-                color: activeSection === sec.id ? "#38bdf8" : "#94a3b8",
-                fontSize: "0.95rem",
-                fontWeight: activeSection === sec.id ? 600 : 400,
-                borderLeft:
-                  activeSection === sec.id
-                    ? "3px solid #38bdf8"
-                    : "3px solid transparent",
-                transition: "all 0.2s",
-              }}
+              className={`admin-sidebar-btn ${activeSection === sec.id ? "active" : ""}`}
             >
               {sec.icon}
               {sec.label}
@@ -429,7 +349,7 @@ function AdminDashboard({ onBack }) {
         </aside>
 
         {/* Main Content */}
-        <main style={{ flex: 1, padding: "40px", maxWidth: "900px" }}>
+        <main className="admin-main">
           {/* Message Toast */}
           {message.text && (
             <div
@@ -455,27 +375,16 @@ function AdminDashboard({ onBack }) {
           {/* ── Add Instructor Form ── */}
           {activeSection === "addInstructor" && (
             <div>
-              <h2
-                style={{
-                  color: "#f8fafc",
-                  fontSize: "1.5rem",
-                  marginBottom: "8px",
-                }}
-              >
-                إضافة معيد جديد
+              <h2 className="admin-section-title">
+                إضافة استاذ جديد
               </h2>
-              <p style={{ color: "#64748b", marginBottom: "32px" }}>
-                أضف حساب معيد / دكتور جديد للنظام
+              <p className="admin-section-desc">
+                أضف حساب استاذ جديد للنظام
               </p>
 
               <form
                 onSubmit={handleAddInstructor}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "20px",
-                  maxWidth: "500px",
-                }}
+                className="admin-form"
               >
                 <div>
                   <label style={labelStyle}>اسم المستخدم (Username)</label>
@@ -500,30 +409,14 @@ function AdminDashboard({ onBack }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{
-                    padding: "14px",
-                    borderRadius: "12px",
-                    border: "none",
-                    cursor: "pointer",
-                    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-                    color: "#fff",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    opacity: loading ? 0.6 : 1,
-                    transition: "opacity 0.2s, transform 0.2s",
-                    boxShadow: "0 4px 15px rgba(59, 130, 246, 0.3)",
-                  }}
+                  className={`admin-submit-btn ${loading ? "loading" : ""}`}
                 >
                   {loading ? (
                     <span className="auth-spinner" />
                   ) : (
                     <>
                       <GraduationCap size={18} />
-                      <span>إضافة المعيد</span>
+                      <span>إضافة الاستاذ</span>
                     </>
                   )}
                 </button>
@@ -534,28 +427,15 @@ function AdminDashboard({ onBack }) {
           {/* ── Add Student Form ── */}
           {activeSection === "addStudent" && (
             <div>
-              <h2
-                style={{
-                  color: "#f8fafc",
-                  fontSize: "1.5rem",
-                  marginBottom: "8px",
-                }}
-              >
+              <h2 className="admin-section-title">
                 إضافة طالب جديد
               </h2>
-              <p style={{ color: "#64748b", marginBottom: "32px" }}>
+              <p className="admin-section-desc">
                 أضف بيانات الطالب، ثم قرر إذا كنت تريد حفظه في القاعدة أو إرسال
                 كلمة المرور.
               </p>
 
-              <form
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "20px",
-                  maxWidth: "500px",
-                }}
-              >
+              <form className="admin-form">
                 <div>
                   <label style={labelStyle}>اسم الطالب</label>
                   <input
@@ -609,13 +489,13 @@ function AdminDashboard({ onBack }) {
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>المعيد المسؤول</label>
+                  <label style={labelStyle}>الاستاذ المسؤول</label>
                   <select
                     style={{...inputStyle, appearance: "auto", cursor: "pointer"}}
                     value={stuInstructor}
                     onChange={(e) => setStuInstructor(e.target.value)}
                   >
-                    <option value="" disabled>اختر المعيد</option>
+                    <option value="" disabled>اختر الاستاذ</option>
                     {instructors.map(inst => (
                       <option key={inst.id} value={inst.id}>{inst.username}</option>
                     ))}
@@ -715,76 +595,24 @@ function AdminDashboard({ onBack }) {
           {/* ── View Instructors ── */}
           {activeSection === "viewInstructors" && (
             <div>
-              <h2
-                style={{
-                  color: "#f8fafc",
-                  fontSize: "1.5rem",
-                  marginBottom: "8px",
-                }}
-              >
-                المعيدون المسجلون
+              <h2 className="admin-section-title">
+                الاساتذة المسجلون
               </h2>
-              <p style={{ color: "#64748b", marginBottom: "24px" }}>
-                إجمالي: {instructors.length} معيد
+              <p className="admin-section-desc">
+                إجمالي: {instructors.length} استاذ
               </p>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
+              <div className="admin-list-container">
                 {instructors.map((inst) => (
-                  <div
-                    key={inst.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "16px 24px",
-                      borderRadius: "14px",
-                      background: "rgba(30, 41, 59, 0.6)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "14px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "10px",
-                          background: "rgba(99,102,241,0.15)",
-                          color: "#818cf8",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
+                  <div key={inst.id} className="admin-list-item">
+                    <div className="admin-list-info">
+                      <div className="admin-list-icon">
                         <GraduationCap size={20} />
                       </div>
                       <div>
-                        <p
-                          style={{
-                            color: "#e2e8f0",
-                            fontWeight: 500,
-                            margin: 0,
-                          }}
-                        >
+                        <p className="admin-list-name">
                           {inst.username}
                         </p>
-                        <p
-                          style={{
-                            color: "#64748b",
-                            fontSize: "0.8rem",
-                            margin: 0,
-                          }}
-                        >
+                        <p className="admin-list-sub">
                           ID: {inst.id}
                         </p>
                       </div>
@@ -817,7 +645,7 @@ function AdminDashboard({ onBack }) {
                       padding: "40px",
                     }}
                   >
-                    لا يوجد معيدون مسجلون حالياً
+                    لا يوجد اساتذة مسجلون حالياً
                   </p>
                 )}
               </div>
@@ -827,89 +655,31 @@ function AdminDashboard({ onBack }) {
           {/* ── View Students ── */}
           {activeSection === "viewStudents" && (
             <div>
-              <h2
-                style={{
-                  color: "#f8fafc",
-                  fontSize: "1.5rem",
-                  marginBottom: "8px",
-                }}
-              >
+              <h2 className="admin-section-title">
                 الطلاب المسجلون
               </h2>
-              <p style={{ color: "#64748b", marginBottom: "24px" }}>
+              <p className="admin-section-desc">
                 إجمالي: {students.length} طالب
               </p>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
+              <div className="admin-list-container">
                 {students.map((stu) => (
-                  <div
-                    key={stu.student_id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "16px 24px",
-                      borderRadius: "14px",
-                      background: "rgba(30, 41, 59, 0.6)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "14px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "10px",
-                          background: "rgba(16,185,129,0.15)",
-                          color: "#34d399",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
+                  <div key={stu.student_id} className="admin-list-item">
+                    <div className="admin-list-info">
+                      <div className="admin-list-icon" style={{ background: "rgba(16,185,129,0.15)", color: "#34d399" }}>
                         <Users size={20} />
                       </div>
                       <div>
-                        <p
-                          style={{
-                            color: "#e2e8f0",
-                            fontWeight: 500,
-                            margin: 0,
-                          }}
-                        >
+                        <p className="admin-list-name">
                           {stu.name || "بدون اسم"}
                         </p>
-                        <p
-                          style={{
-                            color: "#64748b",
-                            fontSize: "0.8rem",
-                            margin: 0,
-                          }}
-                        >
+                        <p className="admin-list-sub">
                           ID: {stu.student_id} • {stu.email || "بدون إيميل"}
                           <br/>
-                          <span style={{color: "#818cf8"}}>المعيد: {instructors.find(i => i.id === stu.instructor_id)?.username || "غير محدد"}</span>
+                          <span style={{color: "#818cf8"}}>الاستاذ: {instructors.find(i => i.id === stu.instructor_id)?.username || "غير محدد"}</span>
                         </p>
                       </div>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                       <button
                         onClick={() => handleResendPassword(stu)}
                         disabled={loading}
@@ -934,19 +704,8 @@ function AdminDashboard({ onBack }) {
                       <button
                         onClick={() => handleDeleteStudent(stu.student_id)}
                         disabled={loading}
-                        style={{
-                          background: "rgba(239,68,68,0.1)",
-                          border: "1px solid rgba(239,68,68,0.2)",
-                          color: "#f87171",
-                          borderRadius: "8px",
-                          padding: "8px 12px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "0.85rem",
-                          opacity: loading ? 0.6 : 1,
-                        }}
+                        className="admin-action-btn-danger"
+                        style={{ opacity: loading ? 0.6 : 1, display: "flex", alignItems: "center", gap: "6px" }}
                       >
                         <Trash2 size={14} />
                         حذف
