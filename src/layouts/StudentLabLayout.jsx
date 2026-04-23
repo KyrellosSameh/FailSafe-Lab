@@ -2,11 +2,11 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, LogOut, Activity, Atom, Scale, TestTube } from "lucide-react";
 
-import OhmsLaw from "../components/OhmsLaw";
-import WheatstoneBridge from "../components/WheatstoneBridge";
-import HookesLaw from "../components/HookesLaw";
-import Viscosity from "../components/Viscosity";
-import CameraProctor from "../components/CameraProctor";
+import OhmsLaw from "../features/experiments/OhmsLaw";
+import WheatstoneBridge from "../features/experiments/WheatstoneBridge";
+import HookesLaw from "../features/experiments/HookesLaw";
+import Viscosity from "../features/experiments/Viscosity";
+import CameraProctor from "../features/proctoring/CameraProctor";
 
 export const EXPERIMENT_NAV_ITEMS = [
   { id: "ohm", label: "Ohm's Law", icon: <Activity size={20} /> },
@@ -236,25 +236,25 @@ export default function StudentLabLayout({
         </header>
 
         <div className="experiment-area">
-          {activeTab === "ohm" && (
+          {(!activeTab || activeTab.trim().toLowerCase() === "ohm") && (
             <OhmsLaw
               examConfig={examConfig}
               onSubmitResult={handleExamSubmit}
             />
           )}
-          {activeTab === "wheatstone" && (
+          {activeTab?.trim().toLowerCase() === "wheatstone" && (
             <WheatstoneBridge
               examConfig={examConfig}
               onSubmitResult={handleExamSubmit}
             />
           )}
-          {activeTab === "hooke" && (
+          {activeTab?.trim().toLowerCase() === "hooke" && (
             <HookesLaw
               examConfig={examConfig}
               onSubmitResult={handleExamSubmit}
             />
           )}
-          {activeTab === "viscosity" && (
+          {activeTab?.trim().toLowerCase() === "viscosity" && (
             <Viscosity
               examConfig={examConfig}
               onSubmitResult={handleExamSubmit}

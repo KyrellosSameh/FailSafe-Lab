@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
-import AdminDashboard from "../components/AdminDashboard";
+import AdminDashboard from "../pages/admin/AdminDashboard";
 import { ProtectedAdminRoute } from "./ProtectedRoute";
 
 export default function AdminRoutes() {
@@ -27,7 +27,7 @@ export default function AdminRoutes() {
       adminLoggedIn={adminLoggedIn}
       onLogin={() => {
         setAdminLoggedIn(true);
-        navigate("/lab/admin/dashboard");
+        navigate("/secure/ctrl-panel-9x7k2/dashboard");
       }}
       onBack={() => navigate("/")}
     >

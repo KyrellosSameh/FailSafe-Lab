@@ -1,22 +1,22 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   ArrowLeft,
-  GraduationCap,
+  Shield,
   Eye,
   EyeOff,
   LogIn,
   Lock,
   User,
 } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 
-function LoginPage({ onBack, onLogin }) {
+function AdminLogin({ onBack, onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,8 +29,8 @@ function LoginPage({ onBack, onLogin }) {
 
     try {
       const { data, error: fetchError } = await supabase
-        .from("instructors")
-        .select("id, username, password")
+        .from("admins")
+        .select("password")
         .eq("username", username.trim())
         .single();
 
@@ -40,24 +40,22 @@ function LoginPage({ onBack, onLogin }) {
         return;
       }
 
-      // Compare password (bcrypt only)
-      if (!data.password || !data.password.startsWith("$2")) {
-        setError("خطأ في حساب الاستاذ. يرجى التواصل مع المسؤول.");
+      const storedPassword = data.password;
+      if (!storedPassword || !storedPassword.startsWith("$2")) {
+        setError("خطأ في حساب المسؤول. كلمة المرور غير مشفرة.");
         setLoading(false);
         return;
       }
-      const isMatch = bcrypt.compareSync(password.trim(), data.password);
+      const isMatch = bcrypt.compareSync(password.trim(), storedPassword);
 
-      if (!isMatch) {
+      if (isMatch) {
+        onLogin();
+      } else {
         setError("اسم المستخدم أو كلمة المرور غير صحيحة.");
-        setLoading(false);
-        return;
       }
-
-      if (onLogin) onLogin({ username: data.username, id: data.id });
     } catch (err) {
-      console.error("Login error:", err);
-      setError("حدث خطأ أثناء تسجيل الدخول. تأكد من اتصالك بالإنترنت.");
+      console.error("Admin login error:", err);
+      setError("حدث خطأ أثناء الاتصال بقاعدة البيانات.");
     } finally {
       setLoading(false);
     }
@@ -69,31 +67,35 @@ function LoginPage({ onBack, onLogin }) {
       <div className="blob blob-2" />
 
       <div className="auth-card glass-panel">
-        {/* Back Button */}
-        <button className="auth-back-btn" onClick={onBack} id="login-back-btn">
+        <button
+          className="auth-back-btn"
+          onClick={onBack}
+          id="admin-login-back-btn"
+        >
           <ArrowLeft size={18} />
           <span>Back</span>
         </button>
 
-        {/* Header */}
         <div className="auth-header">
-          <div className="auth-icon-wrapper auth-icon--instructor">
-            <GraduationCap size={32} strokeWidth={1.5} />
+          <div
+            className="auth-icon-wrapper"
+            style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
+          >
+            <Shield size={32} strokeWidth={1.5} />
           </div>
-          <h2 className="auth-title">Instructor Login</h2>
-          <p className="auth-subtitle">تسجيل دخول المدرس لإنشاء اختبار جديد</p>
+          <h2 className="auth-title">Admin Login</h2>
+          <p className="auth-subtitle">تسجيل دخول مسؤول النظام</p>
         </div>
 
-        {/* Form */}
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="admin-username">Username</label>
             <div className="auth-input-wrapper">
               <User size={18} className="auth-input-icon" />
               <input
-                id="username"
+                id="admin-username"
                 type="text"
-                placeholder="Enter your username"
+                placeholder="Enter admin username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
@@ -102,13 +104,13 @@ function LoginPage({ onBack, onLogin }) {
           </div>
 
           <div className="auth-field">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="admin-password">Password</label>
             <div className="auth-input-wrapper">
               <Lock size={18} className="auth-input-icon" />
               <input
-                id="password"
+                id="admin-password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                placeholder="Enter admin password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
@@ -129,8 +131,8 @@ function LoginPage({ onBack, onLogin }) {
           <button
             type="submit"
             className="auth-submit-btn"
+            id="admin-login-submit-btn"
             disabled={loading}
-            id="login-submit-btn"
           >
             {loading ? (
               <span className="auth-spinner" />
@@ -147,4 +149,4 @@ function LoginPage({ onBack, onLogin }) {
   );
 }
 
-export default LoginPage;
+export default AdminLogin;

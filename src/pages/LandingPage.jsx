@@ -1,10 +1,8 @@
 import {
-  GraduationCap,
   BookOpen,
   Zap,
   ShieldCheck,
   Microscope,
-  Shield,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -41,21 +39,6 @@ function LandingPage() {
 
         {/* Action Buttons */}
         <div className="landing-actions">
-          {/* Instructor Button */}
-          <button
-            className="landing-btn landing-btn--primary"
-            onClick={() => navigate("/lab/instructor")}
-            id="instructor-btn"
-          >
-            <div className="btn-icon-wrapper btn-icon--primary">
-              <GraduationCap size={28} strokeWidth={1.8} />
-            </div>
-            <div className="btn-text">
-              <span className="btn-title">استاذ</span>
-              <span className="btn-subtitle">Instructor Login</span>
-            </div>
-            <Zap size={16} className="btn-arrow" />
-          </button>
 
           {/* Student Button */}
           <button
@@ -67,37 +50,13 @@ function LandingPage() {
               <BookOpen size={28} strokeWidth={1.8} />
             </div>
             <div className="btn-text">
-              <span className="btn-title">طالب</span>
-              <span className="btn-subtitle">Student Exam Entry</span>
+              <span className="btn-title">الدخول للامتحان</span>
+              <span className="btn-subtitle">Enter Exam Securely</span>
             </div>
             <Zap size={16} className="btn-arrow" />
           </button>
 
-          {/* Admin Button */}
-          <button
-            className="landing-btn landing-btn--lab"
-            onClick={() => navigate("/lab/admin")}
-            id="admin-btn"
-            style={{ borderColor: "rgba(245, 158, 11, 0.3)" }}
-          >
-            <div
-              className="btn-icon-wrapper"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(239,68,68,0.2))",
-                color: "#f59e0b",
-              }}
-            >
-              <Shield size={28} strokeWidth={1.8} />
-            </div>
-            <div className="btn-text">
-              <span className="btn-title">مسؤول النظام</span>
-              <span className="btn-subtitle">Admin Panel</span>
-            </div>
-            <Zap size={16} className="btn-arrow" />
-          </button>
-
-          {/* Browse Lab directly */}
+          {/* Browse Lab Button */}
           <button
             className="landing-btn landing-btn--lab"
             onClick={() => navigate("/lab/browse")}

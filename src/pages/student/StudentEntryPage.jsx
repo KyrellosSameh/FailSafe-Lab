@@ -8,12 +8,17 @@ import {
   PlayCircle,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 import emailjs from "@emailjs/browser";
+import "../../styles/components/StudentEntryPage.css";
 
 function SessionCodePage({ onBack, onJoin }) {
-  const [step, setStep] = useState("login"); // 'login' or 'lobby'
+  const isSebBrowser =
+    navigator.userAgent.toLowerCase().includes("seb") ||
+    navigator.userAgent.toLowerCase().includes("safeexambrowser");
+
+  const [step, setStep] = useState(isSebBrowser ? "login" : "seb_check"); // 'seb_check', 'login' or 'lobby'
   const [studentId, setStudentId] = useState("");
   const [studentPassword, setStudentPassword] = useState("");
   const [loggedInStudent, setLoggedInStudent] = useState(null);
@@ -25,7 +30,6 @@ function SessionCodePage({ onBack, onJoin }) {
   // Flag: exam was already opened in SEB (can't re-enter)
   const [examLocked, setExamLocked] = useState(false);
 
-  const [showSebWarning, setShowSebWarning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -124,6 +128,12 @@ function SessionCodePage({ onBack, onJoin }) {
     }
   };
 
+  /**
+   * --- STUDENT AUTHENTICATION FLOW ---
+   * 1. Check for duplicate sessions
+   * 2. Verify password with bcrypt (hashed)
+   * 3. Randomize experiment if session is new
+   */
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (!studentId.trim() || !studentPassword.trim()) {
@@ -396,7 +406,7 @@ function SessionCodePage({ onBack, onJoin }) {
       const ua = navigator.userAgent.toLowerCase();
       const isSeb = ua.includes("seb") || ua.includes("safeexambrowser");
       if (!isSeb) {
-        setShowSebWarning(true);
+        setStep("seb_check");
         setLoading(false);
         return;
       }
@@ -419,10 +429,6 @@ function SessionCodePage({ onBack, onJoin }) {
     }
   };
 
-  const isSebBrowser =
-    navigator.userAgent.toLowerCase().includes("seb") ||
-    navigator.userAgent.toLowerCase().includes("safeexambrowser");
-
   return (
     <div className="auth-page">
       <div className="auth-card glass-panel">
@@ -435,60 +441,31 @@ function SessionCodePage({ onBack, onJoin }) {
         )}
 
         {/* SEB Warning View */}
-        {showSebWarning ? (
+        {step === "seb_check" ? (
           <div
             className="auth-form"
             style={{ textAlign: "center", marginTop: "20px" }}
           >
-            <div
-              style={{
-                background: "rgba(239, 68, 68, 0.1)",
-                padding: "24px",
-                borderRadius: "12px",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                marginBottom: "24px",
-              }}
-            >
+            <div className="student-entry-seb-warning">
               <Lock
                 size={48}
                 color="#ef4444"
-                style={{ margin: "0 auto 16px auto", display: "block" }}
+                className="student-entry-seb-icon"
               />
-              <h3
-                style={{
-                  color: "#ef4444",
-                  marginBottom: "12px",
-                  fontSize: "1.2rem",
-                }}
-              >
+              <h3 className="student-entry-seb-title">
                 بيئة اختبار آمنة إجبارية 🔒
               </h3>
-              <p
-                style={{
-                  color: "var(--text-main)",
-                  fontSize: "0.9rem",
-                  lineHeight: 1.6,
-                }}
-              >
+              <p className="student-entry-seb-text">
                 هذا الاختبار محمي ومراقب. لن تتمكن من الدخول إليه من متصفحك
                 الحالي. يجب فتح الاختبار داخل بيئة المتصفح الآمن (Safe Exam
                 Browser).
               </p>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+            <div className="student-entry-seb-actions">
               <button
                 onClick={handleLaunchSeb}
-                className="auth-submit-btn"
-                style={{
-                  border: "none",
-                  display: "flex",
-                  justifyContent: "center",
-                  background: "#10b981", // Green for launch
-                  color: "#fff",
-                  boxShadow: "0 0 15px rgba(16, 185, 129, 0.4)",
-                  cursor: "pointer",
-                }}
+                className="auth-submit-btn student-entry-seb-btn-launch"
               >
                 🚀 فتح الامتحان في المتصفح الآمن 
               </button>
@@ -497,33 +474,11 @@ function SessionCodePage({ onBack, onJoin }) {
                 href="https://safeexambrowser.org/download_en.html"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="auth-submit-btn"
-                style={{
-                  border: "none",
-                  display: "flex",
-                  justifyContent: "center",
-                  background: "#ef4444", // Red/warning for download
-                  color: "#fff",
-                  textDecoration: "none",
-                  cursor: "pointer",
-                }}
+                className="auth-submit-btn student-entry-seb-btn-download"
               >
                 📥 تحميل المتصفح الآمن (إذا لم يكن لديك)
               </a>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowSebWarning(false)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--text-muted)",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
-            >
-              العودة للوحة الطالب
-            </button>
           </div>
         ) : step === "login" ? (
           <>
@@ -539,99 +494,48 @@ function SessionCodePage({ onBack, onJoin }) {
 
             <form className="auth-form" onSubmit={handleLoginSubmit}>
               <div className="auth-field" style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    color: "var(--text-main)",
-                    marginBottom: "8px",
-                    fontSize: "0.9rem",
-                  }}
-                >
+                <label className="student-entry-label">
                   الرقم الأكاديمي (ID)
                 </label>
-                <div style={{ position: "relative" }}>
+                <div className="student-entry-input-wrapper">
                   <User
                     size={18}
-                    style={{
-                      position: "absolute",
-                      left: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#64748b",
-                    }}
+                    className="student-entry-input-icon"
                   />
                   <input
                     type="text"
                     placeholder="أدخل رقمك الأكاديمي"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px 12px 44px",
-                      borderRadius: "8px",
-                      background: "rgba(0,0,0,0.2)",
-                      border: "1px solid var(--border-color)",
-                      color: "#fff",
-                      outline: "none",
-                    }}
+                    className="student-entry-input"
                     autoFocus
                   />
                 </div>
               </div>
 
               <div className="auth-field" style={{ marginBottom: "24px" }}>
-                <label
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    color: "var(--text-main)",
-                    marginBottom: "8px",
-                    fontSize: "0.9rem",
-                  }}
-                >
+                <label className="student-entry-label-flex">
                   <span>كلمة المرور</span>
                   <button
                     type="button"
                     onClick={handleRequestPassword}
                     disabled={loading}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      color: "#60a5fa",
-                      fontSize: "0.8rem",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                    }}
+                    className="student-entry-forgot-btn"
                   >
                    طلب كلمة المرور
                   </button>
                 </label>
-                <div style={{ position: "relative" }}>
+                <div className="student-entry-input-wrapper">
                   <Lock
                     size={18}
-                    style={{
-                      position: "absolute",
-                      left: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#64748b",
-                    }}
+                    className="student-entry-input-icon"
                   />
                   <input
                     type="password"
                     placeholder="أدخل كلمة المرور"
                     value={studentPassword}
                     onChange={(e) => setStudentPassword(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px 12px 44px",
-                      borderRadius: "8px",
-                      background: "rgba(0,0,0,0.2)",
-                      border: "1px solid var(--border-color)",
-                      color: "#fff",
-                      outline: "none",
-                    }}
+                    className="student-entry-input"
                   />
                 </div>
               </div>
@@ -657,19 +561,14 @@ function SessionCodePage({ onBack, onJoin }) {
             </form>
           </>
         ) : (
-          <div
-            className="auth-form"
-            style={{ textAlign: "center", marginTop: "10px" }}
-          >
-            <p
-              style={{ color: "#fff", fontSize: "1.2rem", marginBottom: "8px" }}
-            >
+          <div className="student-entry-lobby-container">
+            <p className="student-entry-welcome">
               مرحباً يا{" "}
-              <span style={{ color: "var(--primary)", fontWeight: "bold" }}>
+              <span className="student-entry-welcome-name">
                 {loggedInStudent?.name}
               </span>
             </p>
-            <p style={{ color: "var(--text-muted)", marginBottom: "32px" }}>
+            <p className="student-entry-id">
               الرقم الأكاديمي: {loggedInStudent?.student_id}
             </p>
 
@@ -682,128 +581,58 @@ function SessionCodePage({ onBack, onJoin }) {
             {assignedExam ? (
               examCompleted ? (
                 <div>
-                  <p
-                    style={{
-                      color: "#10b981",
-                      padding: "16px",
-                      background: "rgba(16,185,129,0.1)",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(16,185,129,0.2)",
-                      marginBottom: "24px",
-                      lineHeight: 1.5,
-                      fontSize: "1.1rem",
-                    }}
-                  >
+                  <p className="student-entry-completed">
                     لقد أكملت اختبارك بنجاح مسبقاً 🎉
                     <br />
-                    <span
-                      style={{ fontSize: "0.9rem", color: "var(--text-main)" }}
-                    >
+                    <span className="student-entry-completed-sub">
                       لا يحق لك إعادة الاختبار أو سحب ورقة أخرى.
                     </span>
                   </p>
                   <button
                     onClick={onBack}
-                    className="auth-submit-btn"
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--border-color)",
-                      width: "100%",
-                      display: "flex",
-                      justifyContent: "center",
-                      color: "var(--text-main)",
-                      cursor: "pointer",
-                    }}
+                    className="student-entry-back-btn auth-submit-btn"
                   >
                     العودة للرئيسية
                   </button>
                 </div>
               ) : examLocked ? (
                 <div>
-                  <div
-                    style={{
-                      padding: "24px",
-                      background: "rgba(239, 68, 68, 0.1)",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(239, 68, 68, 0.3)",
-                      marginBottom: "24px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: "3rem", marginBottom: "12px" }}>
+                  <div className="student-entry-locked">
+                    <div className="student-entry-locked-icon">
                       ⛔
                     </div>
-                    <h3
-                      style={{
-                        color: "#ef4444",
-                        marginBottom: "12px",
-                        fontSize: "1.2rem",
-                      }}
-                    >
+                    <h3 className="student-entry-locked-title">
                       تم قفل الامتحان نهائياً
                     </h3>
-                    <p
-                      style={{
-                        color: "#fca5a5",
-                        lineHeight: 1.7,
-                        fontSize: "0.95rem",
-                      }}
-                    >
+                    <p className="student-entry-locked-text">
                       لقد فتحت هذا الامتحان مسبقاً ثم خرجت من بيئة الاختبار
                       الآمنة.
                       <br />
                       <strong>لا يمكنك الدخول مرة أخرى.</strong>
                       <br />
-                      <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                      <span className="student-entry-locked-sub">
                         يرجى التواصل مع الاستاذ في حالة وجود مشكلة تقنية.
                       </span>
                     </p>
                   </div>
                   <button
                     onClick={onBack}
-                    className="auth-submit-btn"
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--border-color)",
-                      width: "100%",
-                      display: "flex",
-                      justifyContent: "center",
-                      color: "var(--text-main)",
-                      cursor: "pointer",
-                    }}
+                    className="student-entry-back-btn auth-submit-btn"
                   >
                     العودة للرئيسية
                   </button>
                 </div>
               ) : (
                 <div>
-                  <p
-                    style={{
-                      color: "#3b82f6",
-                      padding: "16px",
-                      background: "rgba(59,130,246,0.1)",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(59,130,246,0.2)",
-                      marginBottom: "24px",
-                      lineHeight: 1.5,
-                    }}
-                  >
+                  <p className="student-entry-assigned">
                     لديك ورقة اختبار تم سحبها مسبقاً وما زالت قيد العمل.
                     <br />
                     اضغط على الزر للعودة إلى تجربتك المخصصة لك.
                   </p>
                   <button
                     onClick={() => proceedToExam(assignedExam)}
-                    className="auth-submit-btn"
+                    className="auth-submit-btn student-entry-start-btn"
                     disabled={loading}
-                    style={{
-                      background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-                      boxShadow: "0 4px 15px rgba(59,130,246,0.3)",
-                      border: "none",
-                      cursor: "pointer",
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
                   >
                     {loading ? (
                       <span className="auth-spinner" />
@@ -818,44 +647,21 @@ function SessionCodePage({ onBack, onJoin }) {
               )
             ) : (
               <div>
-                <p
-                  style={{
-                    color: "var(--text-main)",
-                    marginBottom: "24px",
-                    lineHeight: "1.6",
-                    background: "rgba(255,255,255,0.05)",
-                    padding: "16px",
-                    borderRadius: "12px",
-                  }}
-                >
+                <p className="student-entry-info">
                   لم تقم بسحب ورقة اختبار بعد. للحصول على اختبارك، اضغط على الزر
                   أدناه ليقوم النظام باختيار وسحب تجربة عشوائية من بنك
                   الامتحانات وتخصيصها لك.
                   <br />
                   <br />
-                  <span
-                    style={{
-                      color: "#ef4444",
-                      fontSize: "0.85rem",
-                      fontWeight: "bold",
-                    }}
-                  >
+                  <span className="student-entry-warning-text">
                     ⚠️ ملاحظة: يحق لك سحب اختبار واحد عشوائي فقط ولن تتمكن من
                     تغييره بعد السحب.
                   </span>
                 </p>
                 <button
                   onClick={handleGenerateAndJoin}
-                  className="auth-submit-btn"
+                  className="auth-submit-btn student-entry-generate-btn"
                   disabled={loading}
-                  style={{
-                    background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
-                    boxShadow: "0 4px 15px rgba(99,102,241,0.3)",
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
                 >
                   {loading ? (
                     <span className="auth-spinner" />

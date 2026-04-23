@@ -9,10 +9,10 @@ import {
   Shield,
   Search,
 } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 import emailjs from "@emailjs/browser";
-import "../styles/components/AdminDashboard.css";
+import "../../styles/components/AdminDashboard.css";
 
 
 function AdminDashboard({ onBack }) {

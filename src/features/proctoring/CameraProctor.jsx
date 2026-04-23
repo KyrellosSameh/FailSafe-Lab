@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import { AlertTriangle, Eye, EyeOff, ShieldAlert } from "lucide-react";
 
 function CameraProctor({ examConfig, onKickStudent }) {
@@ -7,12 +7,12 @@ function CameraProctor({ examConfig, onKickStudent }) {
   const cameraStarted = useRef(false);
   const mediaStreamRef = useRef(null);
 
-  // Use refs for mutable state to avoid stale closures in intervals
-  const consecutiveMisses = useRef(0);
-  const isWarningActive = useRef(false);
-  const warningStartTime = useRef(null);
-  const warningTimerId = useRef(null);
-  const countdownTimerId = useRef(null);
+  // --- REAL-TIME TRACKING REFS ---
+  const consecutiveMisses = useRef(0);      // Counter for sequential frames with no face
+  const isWarningActive = useRef(false);    // True if the 30s countdown is visible
+  const warningStartTime = useRef(null);    // Absolute timestamp of warning start
+  const warningTimerId = useRef(null);      // ID for the 30s kick timeout
+  const countdownTimerId = useRef(null);    // ID for the 1s UI counter interval
   const faceCheckTimerId = useRef(null);
   const snapshotTimerId = useRef(null);
   const alertSentRef = useRef(false);
@@ -179,7 +179,10 @@ function CameraProctor({ examConfig, onKickStudent }) {
     }, 30000);
   };
 
-  // ─── Core face detection check ───
+  /**
+   * --- CORE FACE DETECTION LOOP ---
+   * Executed every 3 seconds to verify the student is present.
+   */
   const runFaceCheck = async () => {
     if (!videoRef.current || !window.faceapi) return;
     if (examCompleteRef.current || isKickedRef.current) return;
@@ -226,6 +229,104 @@ function CameraProctor({ examConfig, onKickStudent }) {
       console.warn("[Proctor] Detection error (skipping):", err.message);
     }
   };
+
+  // ─── Tab/Window Exit Detection ───
+  useEffect(() => {
+    if (!examConfig || examConfig.examComplete) return;
+
+    // Send alert via normal async (for tab switching)
+    // SEND ALERT: If student switches tabs/windows
+    const sendTabSwitchAlert = async () => {
+      if (isKickedRef.current || examCompleteRef.current) return;
+      try {
+        await supabase.from("proctor_alerts").insert({
+          student_id: examConfig.studentId.toString(),
+          student_name: examConfig.studentName || "Unknown",
+          exam_code: examConfig.code,
+          instructor_id: examConfig.instructorId,
+          alert_type: "tab_switch",
+          snapshot_path: null,
+        });
+        console.log("[Proctor] Tab-switch alert recorded.");
+      } catch (err) {
+        console.error("[Proctor] Tab-switch error:", err);
+      }
+    };
+
+    // Send alert via fetch keepalive (for browser close - fires even when page unloads)
+    const sendBrowserCloseAlert = () => {
+      if (isKickedRef.current || examCompleteRef.current) return;
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        // 1. Send Alert (Using URLSearchParams to avoid CORS preflight delays on close)
+        const alertParams = new URLSearchParams();
+        alertParams.append("student_id", examConfig.studentId.toString());
+        alertParams.append("student_name", examConfig.studentName || "غير معروف");
+        alertParams.append("exam_code", examConfig.code || "");
+        alertParams.append("instructor_id", examConfig.instructorId || "");
+        alertParams.append("alert_type", "browser_closed");
+        
+        const alertsUrl = `${supabaseUrl}/rest/v1/proctor_alerts?apikey=${supabaseKey}`;
+        navigator.sendBeacon(alertsUrl, alertParams);
+        
+        fetch(alertsUrl, {
+          method: 'POST',
+          body: alertParams,
+          keepalive: true
+        }).catch(() => {});
+
+        // 2. Mark exam as quit in results to remove "جاري الاختبار"
+        const rpcParams = new URLSearchParams();
+        rpcParams.append("p_student_id", examConfig.studentId.toString());
+        rpcParams.append("p_student_name", examConfig.studentName || "غير معروف");
+        rpcParams.append("p_exam_code", examConfig.code || "N/A");
+        rpcParams.append("p_experiment", examConfig.experiment || "unknown");
+        rpcParams.append("p_student_result", "--quit--");
+        rpcParams.append("p_actual_result", "N/A");
+        rpcParams.append("p_unit", "");
+
+        const rpcUrl = `${supabaseUrl}/rest/v1/rpc/submit_exam_result?apikey=${supabaseKey}`;
+        navigator.sendBeacon(rpcUrl, rpcParams);
+
+        fetch(rpcUrl, {
+          method: 'POST',
+          body: rpcParams,
+          keepalive: true
+        }).catch(() => {});
+
+      } catch (err) {
+        console.error("[Proctor] Browser-close alert error:", err);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        sendTabSwitchAlert();
+      }
+    };
+
+    // Flag to prevent sending multiple times
+    let isClosing = false;
+    const handleBeforeUnload = () => {
+      if (isClosing) return;
+      isClosing = true;
+      sendBrowserCloseAlert();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+    window.addEventListener("unload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+      window.removeEventListener("unload", handleBeforeUnload);
+    };
+  }, [examConfig]);
 
   // ─── Main effect: start camera + detection loop ───
   useEffect(() => {

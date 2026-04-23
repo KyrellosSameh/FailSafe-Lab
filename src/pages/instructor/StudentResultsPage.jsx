@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Users, Save, CheckCircle2, Camera, X, Printer } from "lucide-react";
-import { supabase } from "../supabaseClient";
-import "../styles/components/StudentResultsPage.css";
+import { supabase } from "../../lib/supabaseClient";
+import "../../styles/components/StudentResultsPage.css";
 
 
 function StudentResultsPage({ instructorId, onBack }) {
@@ -292,12 +292,30 @@ function StudentResultsPage({ instructorId, onBack }) {
     }, 500);
   };
 
-  const renderResultData = (dataStr, unit, isStudent) => {
+  const renderResultData = (dataStr, unit, isStudent, req) => {
     if (!dataStr) return "";
     if (dataStr === "--") return <span style={{ color: "#ef4444" }}>-- (انتهى الوقت)</span>;
     if (dataStr === "--kicked--") return <span style={{ color: "#ef4444", fontWeight: "bold" }}>غياب الكاميرا</span>;
     if (dataStr === "--quit--") return <span style={{ color: "#f59e0b", fontWeight: "bold" }}>منسحب (Withdrawn)</span>;
-    if (dataStr === "جاري الاختبار...") return <span style={{ color: "#3b82f6", fontWeight: "bold", animation: "pulse 2s infinite" }}>جاري أداء الاختبار... ⏳</span>;
+    
+    if (dataStr === "جاري الاختبار...") {
+      let isDisconnected = false;
+      try {
+        if (req && req.unit && !isNaN(parseInt(req.unit))) {
+          const lastPing = parseInt(req.unit);
+          // If no ping for more than 45 seconds, assume student forcefully closed SEB or lost connection
+          if (Date.now() - lastPing > 45000) {
+            isDisconnected = true;
+          }
+        }
+      } catch (err) {}
+      
+      if (isDisconnected) {
+        return <span style={{ color: "#f59e0b", fontWeight: "bold" }}>منسحب (فقد الاتصال) ⚠️</span>;
+      }
+      return <span style={{ color: "#3b82f6", fontWeight: "bold", animation: "pulse 2s infinite" }}>جاري أداء الاختبار... ⏳</span>;
+    }
+
     try {
       const obj = JSON.parse(dataStr);
       if (obj && obj.table) {
@@ -642,10 +660,11 @@ function StudentResultsPage({ instructorId, onBack }) {
                         req.student_result,
                         req.student_result !== "--" ? req.unit : "",
                         true,
+                        req
                       )}
                     </td>
                     <td style={{ padding: "16px", verticalAlign: "top" }}>
-                      {renderResultData(req.actual_result, req.unit, false)}
+                      {renderResultData(req.actual_result, req.unit, false, req)}
                     </td>
                     <td style={{ padding: "16px", textAlign: "center" }}>
                       <button

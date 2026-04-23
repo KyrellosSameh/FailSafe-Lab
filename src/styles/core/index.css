@@ -1,0 +1,7 @@
+@import "./variables.css";
+@import "./base.css";
+@import "../features/layout.css";
+@import "../pages/landing.css";
+@import "../pages/auth.css";
+@import "../features/proctor.css";
+@import "../components/tables.css";

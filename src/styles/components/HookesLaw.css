@@ -208,3 +208,56 @@
     grid-template-columns: 1fr;
   }
 }
+.hookes-law-eval-panel {
+  padding: 24px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.hookes-law-eval-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.hookes-law-eval-target {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.hookes-law-exam-results {
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.hookes-law-exam-result {
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  border: 1px solid #10b981;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hookes-law-exam-result-del {
+  background: rgba(239, 68, 68, 0.2);
+  border: none;
+  color: #ef4444;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.hookes-law-student-input {
+  background: rgba(255,255,255,0.03);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}

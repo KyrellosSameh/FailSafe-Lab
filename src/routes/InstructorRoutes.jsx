@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
-import InstructorDashboard from "../components/InstructorDashboard";
-import CreateExamPage from "../components/CreateExamPage";
-import StudentResultsPage from "../components/StudentResultsPage";
+import InstructorDashboard from "../pages/instructor/InstructorDashboard";
+import CreateExamPage from "../pages/instructor/CreateExamPage";
+import StudentResultsPage from "../pages/instructor/StudentResultsPage";
 import { ProtectedInstructorRoute } from "./ProtectedRoute";
 
 export default function InstructorRoutes() {
@@ -19,7 +19,7 @@ export default function InstructorRoutes() {
   const handleInstructorLogin = (data) => {
     setInstructorName(data.username);
     setInstructorId(data.id);
-    navigate("/lab/instructor/dashboard");
+    navigate("/secure/ta-portal-4m8p1/dashboard");
   };
 
   const handleInstructorLogout = () => {
@@ -44,8 +44,8 @@ export default function InstructorRoutes() {
               username={instructorName}
               instructorId={instructorId}
               onBack={handleInstructorLogout}
-              onCreateExam={() => navigate("/lab/instructor/create")}
-              onViewResults={() => navigate("/lab/instructor/results")}
+              onCreateExam={() => navigate("/secure/ta-portal-4m8p1/create")}
+              onViewResults={() => navigate("/secure/ta-portal-4m8p1/results")}
             />
           }
         />
@@ -54,7 +54,7 @@ export default function InstructorRoutes() {
           element={
             <CreateExamPage
               instructorId={instructorId}
-              onBack={() => navigate("/lab/instructor/dashboard")}
+              onBack={() => navigate("/secure/ta-portal-4m8p1/dashboard")}
             />
           }
         />
@@ -63,7 +63,7 @@ export default function InstructorRoutes() {
           element={
             <StudentResultsPage
               instructorId={instructorId}
-              onBack={() => navigate("/lab/instructor/dashboard")}
+              onBack={() => navigate("/secure/ta-portal-4m8p1/dashboard")}
             />
           }
         />

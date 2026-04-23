@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   ArrowLeft,
   FileText,
@@ -12,7 +12,7 @@ import {
   Layers,
 } from "lucide-react";
 // استدعاء ملف الاتصال بقاعدة البيانات
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 function CreateExamPage({ instructorId, onBack }) {
   const [experiment, setExperiment] = useState("ohm");
@@ -24,8 +24,7 @@ function CreateExamPage({ instructorId, onBack }) {
   const [viscosityLiquid, setViscosityLiquid] = useState("Glycerin");
   const [viscosityBalls, setViscosityBalls] = useState([2, 3, 4, 5, 6]);
 
-  // Security options
-  const [requiresSeb, setRequiresSeb] = useState(true);
+  // All exams strictly require SEB. No toggle option anymore.
 
   const [loading, setLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
@@ -48,7 +47,7 @@ function CreateExamPage({ instructorId, onBack }) {
         hookeSpringConstant,
         viscosityLiquid,
         viscosityBalls,
-        requires_seb: requiresSeb,
+        requires_seb: true,
       };
       const { error } = await supabase
         .from("exams")
@@ -105,7 +104,7 @@ function CreateExamPage({ instructorId, onBack }) {
         code = Math.floor(100000 + Math.random() * 900000).toString();
       } while (newExams.find((ex) => ex.session_code === code));
 
-      const params = { requires_seb: requiresSeb };
+      const params = { requires_seb: true };
       if (randExp === "ohm") {
         params.ohmResistance = Math.floor(Math.random() * (500 - 10 + 1)) + 10;
       } else if (randExp === "wheatstone") {
@@ -395,68 +394,7 @@ function CreateExamPage({ instructorId, onBack }) {
             {renderExperimentInputs()}
           </div>
 
-          {/* Security Options */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "24px",
-              padding: "12px 16px",
-              background: requiresSeb
-                ? "rgba(16, 185, 129, 0.1)"
-                : "rgba(255,255,255,0.05)",
-              borderRadius: "8px",
-              border: `1px solid ${requiresSeb ? "#10b981" : "rgba(255,255,255,0.1)"}`,
-              cursor: "pointer",
-              transition: "all 0.3s",
-            }}
-            onClick={() => setRequiresSeb(!requiresSeb)}
-          >
-            <div
-              style={{
-                width: "20px",
-                height: "20px",
-                borderRadius: "4px",
-                border: `2px solid ${requiresSeb ? "#10b981" : "#64748b"}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: requiresSeb ? "#10b981" : "transparent",
-              }}
-            >
-              {requiresSeb && <CheckCircle2 size={14} color="#fff" />}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                <ShieldCheck
-                  size={18}
-                  color={requiresSeb ? "#10b981" : "#cbd5e1"}
-                />
-                <strong
-                  style={{
-                    color: requiresSeb ? "#10b981" : "var(--text-main)",
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  تفعيل المراقبة والمتصفح الآمن (SEB & Camera)
-                </strong>
-              </div>
-              <p
-                style={{
-                  margin: "4px 0 0 0",
-                  fontSize: "0.8rem",
-                  color: "var(--text-muted)",
-                }}
-              >
-                إلزام الطالب باستخدام Safe Exam Browser وتفعيل التقاط صور
-                المراقبة.
-              </p>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", gap: "12px", marginBottom: "16px", marginTop: "24px" }}>
             <button
               type="submit"
               className="auth-submit-btn"

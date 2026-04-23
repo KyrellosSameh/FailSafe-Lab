@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import {
   LogOut,
   PlusCircle,
@@ -11,7 +11,7 @@ import {
   CheckCircle,
   Bell,
 } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 function InstructorDashboard({
   instructorId,
@@ -382,15 +382,44 @@ function InstructorDashboard({
                     style={{
                       padding: "10px 14px",
                       borderRadius: "8px",
-                      background: "rgba(239, 68, 68, 0.08)",
-                      color: "#fca5a5",
+                      background: alert.alert_type === "browser_closed"
+                        ? "rgba(239, 68, 68, 0.12)"
+                        : alert.alert_type === "tab_switch"
+                        ? "rgba(245, 158, 11, 0.1)"
+                        : "rgba(239, 68, 68, 0.08)",
+                      color: alert.alert_type === "browser_closed"
+                        ? "#fca5a5"
+                        : alert.alert_type === "tab_switch"
+                        ? "#fcd34d"
+                        : "#fca5a5",
                       fontSize: "0.85rem",
                       lineHeight: 1.6,
                       direction: "rtl",
                     }}
                   >
-                    ⚠️ الطالب غاب عن الكاميرا لأكثر من 30 ثانية. تم إنهاء
-                    الامتحان تلقائياً.
+                    {alert.alert_type === "browser_closed" ? (
+                      <>
+                        🚨 <strong>أغلق المتصفح أو غلق صفحة الامتحان كلياً!</strong>
+                        <br />
+                        <span style={{ opacity: 0.85 }}>الطالب خرج من الامتحان بإغلاق المتصفح أو التاب.</span>
+                      </>
+                    ) : alert.alert_type === "tab_switch" ? (
+                      <>
+                        ⚠️ <strong>غادر الطالب صفحة الامتحان مؤقتاً</strong>
+                        <br />
+                        <span style={{ opacity: 0.85 }}>تبديل تاب أو نافذة — قد يكون عاد بعدها.</span>
+                      </>
+                    ) : alert.alert_type === "tab_left" ? (
+                      <>
+                        ⚠️ الطالب خرج من صفحة الامتحان أو أغلق المتصفح (قد يكون
+                        تم تبديل النوافذ).
+                      </>
+                    ) : (
+                      <>
+                        ⚠️ الطالب غاب عن الكاميرا لأكثر من 30 ثانية. تم إنهاء
+                        الامتحان تلقائياً.
+                      </>
+                    )}
                   </div>
 
                   {/* Snapshot */}

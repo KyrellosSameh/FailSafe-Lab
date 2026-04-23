@@ -7,11 +7,34 @@ import {
   XCircle,
   Ruler,
   Crosshair,
+  RefreshCw
 } from "lucide-react";
-import "../styles/components/Viscosity.css";
+import "../../styles/components/Viscosity.css";
 
 
 export default function Viscosity({ examConfig, onSubmitResult }) {
+  // 5-minute submission lock
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!examConfig || !examConfig.startTime) return;
+
+    const calculateTimeLeft = () => {
+      const start = new Date(examConfig.startTime).getTime();
+      const now = new Date().getTime();
+      const diff = now - start;
+      const lockMinutes = 1 * 60 * 1000;
+      const remaining = Math.max(0, Math.ceil((lockMinutes - diff) / 1000));
+      setTimeLeft(remaining);
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [examConfig]);
+
+  const canSubmit = !examConfig || timeLeft === 0;
+
   const g = 9.8;
   const ballDensity = 7800; // Steel
   const distanceMeters = 0.6;
@@ -56,7 +79,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
 
   const [balls, setBalls] = useState(() => {
     const arr = [];
-    if (examConfig && examConfig.parameters.viscosityBalls) {
+    if (examConfig && examConfig.parameters && examConfig.parameters.viscosityBalls) {
       examConfig.parameters.viscosityBalls.forEach((d, i) => {
         arr.push({
           id: i + 1,
@@ -107,15 +130,21 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
 
   // Manual Micrometer State
   const [micrometerGap, setMicrometerGap] = useState(25.0);
-  const micrometerSliderRef = useRef(null);
-
-  const [simState, setSimState] = useState("idle");
-  const [dropPosition, setDropPosition] = useState(0);
+  // --- VISCOSITY LOGIC (STOKES' LAW) ---
+  // Calculates fluid resistance (η) based on falling sphere terminal velocity.
+  const [selectedBall, setSelectedBall] = useState(null);
+  const [isDropping, setIsDropping] = useState(false);
+  const [ballPosition, setBallPosition] = useState(0); // Vertical travel in tube
   const [liveTime, setLiveTime] = useState(0);
 
   const requestRef = useRef();
   const startTimeRef = useRef(0);
   const timeAtTopMarkRef = useRef(0);
+  const timeAtBottomMarkRef = useRef(0);
+  const micrometerSliderRef = useRef(null);
+
+  const [simState, setSimState] = useState("idle");
+  const [dropPosition, setDropPosition] = useState(0);
 
   const terminalVelocity =
     (2 *
@@ -123,6 +152,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
       g *
       (ballDensity - fluidProps.density)) /
     (9 * fluidProps.viscosity);
+    
   const maxDistanceMeters = 1.0;
   const topMarkMeters = 0.2;
   const bottomMarkMeters = 0.8;
@@ -137,16 +167,15 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
 
     setDropPosition(Math.min(currentPosMeters, maxDistanceMeters));
 
-    if (
-      currentPosMeters >= topMarkMeters &&
-      currentPosMeters < bottomMarkMeters
-    ) {
-      if (!timeAtTopMarkRef.current) timeAtTopMarkRef.current = elapsedS;
+    if (currentPosMeters >= topMarkMeters && !timeAtTopMarkRef.current) {
+      timeAtTopMarkRef.current = elapsedS;
+    }
+
+    if (timeAtTopMarkRef.current && currentPosMeters < bottomMarkMeters) {
       setLiveTime(elapsedS - timeAtTopMarkRef.current);
       setSimMessage("Stopwatch: Running...");
-    } else if (currentPosMeters >= bottomMarkMeters) {
-      setSimState("idle");
-      setDropPosition(bottomMarkMeters);
+    } else if (currentPosMeters >= bottomMarkMeters && !timeAtBottomMarkRef.current) {
+      timeAtBottomMarkRef.current = elapsedS;
 
       const tTrue = distanceMeters / terminalVelocity;
       const error = Math.random() * 0.1 * (Math.random() > 0.5 ? 1 : -1);
@@ -160,11 +189,13 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
           b.id === activeBallId ? { ...b, tMeasured: tMeasured } : b,
         ),
       );
-      return;
     }
 
     if (currentPosMeters < maxDistanceMeters) {
       requestRef.current = requestAnimationFrame(animate);
+    } else {
+      setSimState("idle");
+      setDropPosition(maxDistanceMeters);
     }
   };
 
@@ -181,6 +212,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
     setLiveTime(0);
     startTimeRef.current = 0;
     timeAtTopMarkRef.current = 0;
+    timeAtBottomMarkRef.current = 0;
     setSimMessage("Ball dropping...");
   };
 
@@ -1041,23 +1073,39 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             </div>
           </div>
 
-          <button
-            onClick={checkAnswers}
-            disabled={examConfig?.examComplete}
-            style={{
-              padding: "12px 24px",
-              background: "var(--primary)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "1.1rem",
-              cursor: examConfig?.examComplete ? "not-allowed" : "pointer",
-              fontWeight: "bold",
-              opacity: examConfig?.examComplete ? 0.5 : 1,
-            }}
-          >
-            {examConfig?.examComplete ? "تم التسجيل" : "Check Answers"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
+            <button
+              onClick={checkAnswers}
+              disabled={!canSubmit || examConfig?.examComplete}
+              style={{
+                padding: "12px 24px",
+                background: "var(--primary)",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "1.1rem",
+                cursor: (!canSubmit || examConfig?.examComplete) ? "not-allowed" : "pointer",
+                fontWeight: "bold",
+                opacity: (!canSubmit || examConfig?.examComplete) ? 0.5 : 1,
+                transition: "all 0.3s ease",
+                minWidth: "180px",
+              }}
+            >
+              {!canSubmit ? (
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  <RefreshCw size={18} className="animate-spin" />
+                  انتظر {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")}
+                </span>
+              ) : (
+                <>{examConfig?.examComplete ? "تم التسجيل" : (examConfig ? "تسجيل النتائج" : "Check Answers")}</>
+              )}
+            </button>
+            {!canSubmit && (
+              <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
+                يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+              </p>
+            )}
+          </div>
         </div>
 
         {!examConfig && (

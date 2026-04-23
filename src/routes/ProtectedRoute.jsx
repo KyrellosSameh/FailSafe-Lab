@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
-import LoginPage from "../components/LoginPage";
-import AdminLogin from "../components/AdminLogin";
+import InstructorLogin from "../pages/instructor/InstructorLogin";
+import AdminLogin from "../pages/admin/AdminLogin";
 
 /**
  * A reusable ProtectedRoute component to handle Instructor and Admin authentication.
@@ -14,7 +14,7 @@ export function ProtectedInstructorRoute({
   children,
 }) {
   if (!instructorName || !instructorId) {
-    return <LoginPage onLogin={onLogin} onBack={onBack} />;
+    return <InstructorLogin onLogin={onLogin} onBack={onBack} />;
   }
   return children;
 }

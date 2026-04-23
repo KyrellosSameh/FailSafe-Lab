@@ -8,6 +8,7 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
+import "../../styles/components/OhmsLaw.css";
 
 // Standard E12 series resistor values suitable for lab experiments (Ohms)
 const STANDARD_RESISTORS = [
@@ -15,8 +16,11 @@ const STANDARD_RESISTORS = [
 ];
 
 export default function OhmsLaw({ examConfig, onSubmitResult }) {
-  const [voltage, setVoltage] = useState(12); // Volts
-  const [resistance, setResistance] = useState(100); // True Resistance in Ohms
+  // --- OHM'S LAW CORE LOGIC ---
+  // Formula: I = V / R + Noise
+  const [voltage, setVoltage] = useState(12); // User-adjustable voltage (0-24V)
+  const [resistance, setResistance] = useState(100); // True Resistance generated per session
+  const [current, setCurrent] = useState(0); // Calculated live current (I)
   const voltageSliderRef = useRef(null);
 
   // Evaluation states
@@ -35,6 +39,28 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
   const [graphV2, setGraphV2] = useState("");
   const [graphI2, setGraphI2] = useState("");
   const [studentSlope, setStudentSlope] = useState("");
+
+  // 5-minute submission lock
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!examConfig || !examConfig.startTime) return;
+
+    const calculateTimeLeft = () => {
+      const start = new Date(examConfig.startTime).getTime();
+      const now = new Date().getTime();
+      const diff = now - start;
+      const lockMinutes = 1 * 60 * 1000;
+      const remaining = Math.max(0, Math.ceil((lockMinutes - diff) / 1000));
+      setTimeLeft(remaining);
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [examConfig]);
+
+  const canSubmit = !examConfig || timeLeft === 0;
 
   // Static device inaccuracies (+/- 2% for AM, +/- 1% for VM) per run
   const [voltageNoise, setVoltageNoise] = useState(1);
@@ -136,32 +162,10 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
       : `${measuredCurrent.toFixed(2)} A`;
 
   return (
-    <div
-      className="glass-panel p-6 w-full max-w-5xl animate-fade-in"
-      style={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
+    <div className="glass-panel ohms-law-container animate-fade-in">
+      <div className="ohms-law-header">
         <div>
-          <h2
-            style={{
-              fontSize: "2rem",
-              marginBottom: "8px",
-              color: "var(--primary)",
-            }}
-          >
+          <h2 className="ohms-law-title">
             Ohm's Law Simulator
           </h2>
           <p style={{ color: "var(--text-muted)" }}>
@@ -170,85 +174,32 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           </p>
         </div>
         {!examConfig && (
-          <div
-            style={{
-              padding: "12px 24px",
-              background: "rgba(59, 130, 246, 0.1)",
-              borderRadius: "12px",
-              border: "1px solid var(--primary)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: 600,
-                fontFamily: "Outfit",
-              }}
-            >
+          <div className="ohms-law-formula">
+            <span>
               R = V / I
             </span>
           </div>
         )}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
-          gap: "24px",
-          marginTop: "16px",
-        }}
-      >
+      <div className="ohms-law-grid">
         {/* Instruments Panel */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* Voltmeter */}
-          <div
-            className="glass-panel"
-            style={{ padding: "20px", background: "rgba(15, 23, 42, 0.9)" }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "8px",
-                  background: "#3b82f633",
-                  borderRadius: "50%",
-                  color: "#3b82f6",
-                }}
-              >
+          <div className="glass-panel ohms-law-panel">
+            <div className="ohms-law-panel-header">
+              <div className="ohms-law-icon-blue">
                 <Activity size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Voltmeter (V)</h3>
             </div>
 
-            <div
-              className="device-display"
-              style={{
-                fontSize: "2.5rem",
-                textAlign: "right",
-                letterSpacing: "2px",
-              }}
-            >
+            <div className="device-display ohms-law-meters">
               {measuredVoltage.toFixed(2)} V
             </div>
 
-            <div style={{ marginTop: "24px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: "8px",
-                  color: "var(--text-muted)",
-                  fontSize: "0.9rem",
-                }}
-              >
+            <div className="ohms-law-slider-wrapper">
+              <div className="ohms-law-slider-labels">
                 <span>Power Supply</span>
                 <span>{voltage} V</span>
               </div>
@@ -266,15 +217,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                   accentColor: "var(--primary)",
                 }}
               />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginTop: "4px",
-                  color: "var(--text-muted)",
-                  fontSize: "0.8rem",
-                }}
-              >
+              <div className="ohms-law-slider-minmax">
                 <span>0V</span>
                 <span>24V</span>
               </div>
@@ -282,43 +225,19 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           </div>
 
           {/* Ammeter */}
-          <div
-            className="glass-panel"
-            style={{ padding: "20px", background: "rgba(15, 23, 42, 0.9)" }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "8px",
-                  background: "#10b98133",
-                  borderRadius: "50%",
-                  color: "#10b981",
-                }}
-              >
+          <div className="glass-panel ohms-law-panel">
+            <div className="ohms-law-panel-header">
+              <div className="ohms-law-icon-green">
                 <Zap size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Ammeter (I)</h3>
             </div>
 
-            <div
-              className="device-display green"
-              style={{
-                fontSize: "2.5rem",
-                textAlign: "right",
-                letterSpacing: "2px",
-              }}
-            >
+            <div className="device-display green ohms-law-meters">
               {displayCurrent}
             </div>
 
-            <div style={{ marginTop: "24px" }}>
+            <div className="ohms-law-slider-wrapper">
               <p
                 style={{
                   color: "var(--text-muted)",
@@ -328,20 +247,11 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
               >
                 Calculated from circuit
               </p>
-              <div
-                style={{
-                  height: "4px",
-                  background: "#10b98133",
-                  borderRadius: "2px",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="ohms-law-progress-bar-container">
                 <div
+                  className="ohms-law-progress-bar"
                   style={{
-                    height: "100%",
-                    background: "#10b981",
                     width: `${Math.min(100, (measuredCurrent / 0.5) * 100)}%`,
-                    transition: "width 0.3s ease",
                   }}
                 ></div>
               </div>
@@ -350,102 +260,29 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
         </div>
 
         {/* Circuit & Evaluation Panel */}
-        <div
-          className="glass-panel"
-          style={{ padding: "24px", display: "flex", flexDirection: "column" }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "24px",
-            }}
-          >
-            <div
-              style={{
-                padding: "8px",
-                background: "#f59e0b33",
-                borderRadius: "50%",
-                color: "#f59e0b",
-              }}
-            >
+        <div className="glass-panel ohms-law-panel" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="ohms-law-panel-header" style={{ marginBottom: "24px" }}>
+            <div className="ohms-law-icon-orange">
               <TriangleRight size={20} />
             </div>
             <h3 style={{ margin: 0 }}>Unknown Resistor (R)</h3>
           </div>
 
-          <div
-            style={{
-              padding: "24px",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: "12px",
-              marginBottom: "24px",
-              textAlign: "center",
-            }}
-          >
+          <div className="ohms-law-resistor-visual">
             {/* CSS Resistor visualization */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "20px 0",
-              }}
-            >
-              <div
-                style={{ width: "40px", height: "4px", background: "#94a3b8" }}
-              ></div>
-              <div
-                style={{
-                  width: "120px",
-                  height: "40px",
-                  background: `linear-gradient(90deg, #d97706, #f59e0b 20%, #b45309 80%, #d97706)`,
-                  borderRadius: "8px",
-                  display: "flex",
-                  justifyContent: "space-evenly",
-                  alignItems: "center",
-                  boxShadow:
-                    "0 4px 6px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "6px",
-                    height: "100%",
-                    background: "#bfdbfe",
-                  }}
-                ></div>
-                <div
-                  style={{
-                    width: "6px",
-                    height: "100%",
-                    background: "#475569",
-                  }}
-                ></div>
-                <div
-                  style={{
-                    width: "6px",
-                    height: "100%",
-                    background: "#1e293b",
-                  }}
-                ></div>
-                <div
-                  style={{
-                    width: "6px",
-                    height: "100%",
-                    background: "#fbbf24",
-                  }}
-                ></div>
+            <div className="ohms-law-resistor-graphic">
+              <div className="ohms-law-wire"></div>
+              <div className="ohms-law-resistor-body">
+                <div className="ohms-law-band band-1"></div>
+                <div className="ohms-law-band band-2"></div>
+                <div className="ohms-law-band band-3"></div>
+                <div className="ohms-law-band band-4"></div>
               </div>
-              <div
-                style={{ width: "40px", height: "4px", background: "#94a3b8" }}
-              ></div>
+              <div className="ohms-law-wire"></div>
             </div>
             <div
+              className="ohms-law-unknown-value"
               style={{
-                fontSize: "2rem",
-                fontWeight: 700,
                 color: isEvaluated
                   ? examConfig
                     ? "#3b82f6"
@@ -453,7 +290,6 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       ? "#10b981"
                       : "#ef4444"
                   : "#f59e0b",
-                marginTop: "16px",
               }}
             >
               {isEvaluated ? (examConfig ? "*** Ω" : `${resistance} Ω`) : "? Ω"}
@@ -472,16 +308,10 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           </div>
 
           {examConfig && (
-            <div style={{ marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+            <div className="ohms-law-exam-results">
                {examStepResults.length > 0 && <h4 style={{ margin: "0 0 8px 0", color: "var(--primary)" }}>النقاط المسجلة ({examStepResults.length}/4)</h4>}
                {examStepResults.map((res, idx) => (
-                  <div key={idx} style={{
-                     padding: "8px 12px",
-                     background: "rgba(0,0,0,0.2)",
-                     borderRadius: "8px",
-                     border: "1px solid #10b981",
-                     display: "flex", justifyContent: "space-between", alignItems: "center"
-                  }}>
+                  <div key={idx} className="ohms-law-exam-result-item">
                      <span style={{color: "var(--text-muted)", fontSize: "0.85rem"}}>قراءة {idx + 1}:</span>
                      <span style={{fontWeight: "bold", color: "#fff", flex: 1, textAlign: "center"}}>
                         V: {res.v} | I: {res.i}
@@ -494,16 +324,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                               setExamStepResults(newResults);
                               if (newResults.length < 4) setGraphPhase(false);
                            }}
-                           style={{
-                              background: "rgba(239, 68, 68, 0.2)",
-                              border: "none",
-                              color: "#ef4444",
-                              borderRadius: "4px",
-                              padding: "2px 8px",
-                              cursor: "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "bold"
-                           }}
+                           className="ohms-law-exam-result-delete"
                         >
                            ✕
                         </button>
@@ -514,22 +335,8 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           )}
 
           {/* Student Input Section */}
-          <div
-            style={{
-              marginTop: "auto",
-              background: "rgba(255,255,255,0.03)",
-              padding: "20px",
-              borderRadius: "12px",
-              border: "1px solid var(--border-color)",
-            }}
-          >
-            <h4
-              style={{
-                marginBottom: "16px",
-                color: "var(--text-main)",
-                fontSize: "1.05rem",
-              }}
-            >
+          <div className="ohms-law-student-input">
+            <h4 className="ohms-law-student-title">
               {examConfig && graphPhase ? "حساب الميل من الرسم البياني" : (examConfig ? "تسجيل قراءة جديدة" : "Calculate the Resistance")}
             </h4>
 
@@ -691,37 +498,61 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
 
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
               {!isEvaluated ? (
-                <button
-                  type="submit"
-                  disabled={graphPhase ? (!studentSlope.trim() || !graphV1.trim() || !graphI1.trim() || !graphV2.trim() || !graphI2.trim()) : (examConfig ? (!studentV.trim() || !studentI.trim()) : !studentAnswer.trim())}
-                  style={{
-                    background: "var(--primary)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "10px 24px",
-                    fontWeight: 600,
-                    cursor: (graphPhase ? (studentSlope.trim() && graphV1.trim() && graphI1.trim() && graphV2.trim() && graphI2.trim()) : (examConfig ? (studentV.trim() && studentI.trim()) : studentAnswer.trim())) ? "pointer" : "not-allowed",
-                    opacity: (graphPhase ? (studentSlope.trim() && graphV1.trim() && graphI1.trim() && graphV2.trim() && graphI2.trim()) : (examConfig ? (studentV.trim() && studentI.trim()) : studentAnswer.trim())) ? 1 : 0.6,
-                  }}
-                >
-                  {examConfig ? (graphPhase ? "إرسال النتيجة البيانية" : "تسجيل القراءة") : "Check"}
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%" }}>
+                  <button
+                    type="submit"
+                    disabled={
+                      !canSubmit ||
+                      (graphPhase
+                        ? !studentSlope.trim() || !graphV1.trim() || !graphI1.trim() || !graphV2.trim() || !graphI2.trim()
+                        : examConfig
+                          ? !studentV.trim() || !studentI.trim()
+                          : !studentAnswer.trim())
+                    }
+                    className="ohms-law-submit-btn"
+                    style={{
+                      background: "var(--primary)",
+                      cursor:
+                        canSubmit &&
+                        (graphPhase
+                          ? studentSlope.trim() && graphV1.trim() && graphI1.trim() && graphV2.trim() && graphI2.trim()
+                          : examConfig
+                            ? studentV.trim() && studentI.trim()
+                            : studentAnswer.trim())
+                          ? "pointer"
+                          : "not-allowed",
+                      opacity:
+                        canSubmit &&
+                        (graphPhase
+                          ? studentSlope.trim() && graphV1.trim() && graphI1.trim() && graphV2.trim() && graphI2.trim()
+                          : examConfig
+                            ? studentV.trim() && studentI.trim()
+                            : studentAnswer.trim())
+                          ? 1
+                          : 0.6,
+                    }}
+                  >
+                    {!canSubmit ? (
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                        <RefreshCw size={16} className="animate-spin" />
+                        انتظر {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")} دقيقة
+                      </span>
+                    ) : (
+                      <>{examConfig ? (graphPhase ? "إرسال النتيجة البيانية" : "تسجيل القراءة") : "Check"}</>
+                    )}
+                  </button>
+                  {!canSubmit && (
+                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
+                      يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+                    </p>
+                  )}
+                </div>
               ) : (
                 !examConfig && (
                   <button
                     type="button"
                     onClick={generateNewResistor}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--primary)",
-                      color: "var(--primary)",
-                      borderRadius: "8px",
-                      padding: "10px 24px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
+                    className="ohms-law-retry-btn"
                   >
                     <RefreshCw size={18} /> Retry
                   </button>

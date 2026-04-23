@@ -6,12 +6,16 @@ import {
   XCircle,
   TriangleRight,
 } from "lucide-react";
+import "../../styles/components/WheatstoneBridge.css";
 
 const STANDARD_RESISTORS = [
   10, 22, 33, 47, 56, 68, 100, 150, 220, 330, 470, 560, 680, 1000,
 ];
 
 export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
+  // --- WHEATSTONE BRIDGE LOGIC ---
+  // Formula: Rx = R * (L / (100 - L))
+  // The goal is to reach the "null point" (zero galvanometer deflection).
   const [knownR, setKnownR] = useState(100);
   const [rx, setRx] = useState(150); // Unknown resistor
   const [jockeyL, setJockeyL] = useState(50); // Position in cm (0 to 100)
@@ -32,6 +36,28 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
   const [tKnown, setTKnown] = useState(1);
   const [wireTotalR, setWireTotalR] = useState(10);
   const [tNoise, setTNoise] = useState(1);
+
+  // 5-minute submission lock
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!examConfig || !examConfig.startTime) return;
+
+    const calculateTimeLeft = () => {
+      const start = new Date(examConfig.startTime).getTime();
+      const now = new Date().getTime();
+      const diff = now - start;
+      const lockMinutes = 1 * 60 * 1000;
+      const remaining = Math.max(0, Math.ceil((lockMinutes - diff) / 1000));
+      setTimeLeft(remaining);
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [examConfig]);
+
+  const canSubmit = !examConfig || timeLeft === 0;
 
   const generateNewRx = useCallback(() => {
     if (examConfig) {
@@ -132,32 +158,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
   };
 
   return (
-    <div
-      className="glass-panel p-6 w-full max-w-5xl animate-fade-in"
-      style={{
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "24px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
+    <div className="glass-panel wheatstone-container animate-fade-in">
+      <div className="wheatstone-header">
         <div>
-          <h2
-            style={{
-              fontSize: "2rem",
-              marginBottom: "8px",
-              color: "var(--primary)",
-            }}
-          >
+          <h2 className="wheatstone-title">
             Meter Bridge (Wheatstone)
           </h2>
           <p style={{ color: "var(--text-muted)" }}>
@@ -166,202 +170,66 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
           </p>
         </div>
         {!examConfig && (
-          <div
-            style={{
-              padding: "12px 24px",
-              background: "rgba(59, 130, 246, 0.1)",
-              borderRadius: "12px",
-              border: "1px solid var(--primary)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "1.2rem",
-                fontWeight: 600,
-                fontFamily: "Outfit",
-              }}
-            >
+          <div className="wheatstone-formula">
+            <span>
               R<sub style={{ fontSize: "0.8rem" }}>x</sub> = R × (L / (100 - L))
             </span>
           </div>
         )}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(min(100%, 350px), 1fr))",
-          gap: "24px",
-          marginTop: "16px",
-        }}
-      >
+      <div className="wheatstone-grid">
         {/* Left Side: Circuit and Meter Bridge */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+        <div className="wheatstone-left-side">
           {/* Circuit Schematic Area */}
-          <div
-            className="glass-panel"
-            style={{
-              padding: "24px",
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-            }}
-          >
+          <div className="glass-panel wheatstone-circuit-panel">
             {/* Schema Visualizer */}
-            <div
-              style={{
-                width: "100%",
-                maxWidth: "400px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "40px",
-              }}
-            >
-              <div
-                style={{
-                  background: "rgba(0,0,0,0.3)",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  border: "1px solid #3b82f6",
-                  textAlign: "center",
-                  width: "120px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "#3b82f6",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Unknown R<sub>x</sub>
-                </div>
-                <div style={{ fontWeight: "bold" }}>Left Gap</div>
-              </div>
-
+            <div className="wheatstone-schema-wrapper">
               {/* Galvanometer */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "120px",
-                  height: "60px",
-                  overflow: "hidden",
-                  borderBottom: "2px solid var(--border-color)",
-                  margin: "0 20px",
-                }}
-              >
+              <div className="wheatstone-galvanometer">
                 {/* Dial background */}
-                <div
-                  style={{
-                    width: "120px",
-                    height: "120px",
-                    border: "2px solid var(--text-muted)",
-                    borderRadius: "50%",
-                    position: "absolute",
-                    top: "0",
-                    left: "0",
-                  }}
-                ></div>
+                <div className="wheatstone-galv-dial"></div>
                 {/* Pivot point */}
-                <div
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    background: "var(--primary)",
-                    borderRadius: "50%",
-                    position: "absolute",
-                    bottom: "-6px",
-                    left: "54px",
-                    zIndex: 10,
-                  }}
-                ></div>
+                <div className="wheatstone-galv-pivot"></div>
                 {/* Needle */}
                 <div
-                  style={{
-                    width: "3px",
-                    height: "54px",
-                    background: "#ef4444",
-                    position: "absolute",
-                    bottom: "0",
-                    left: "58.5px",
-                    transformOrigin: "bottom center",
-                    transform: `rotate(${needleRotation}deg)`,
-                    transition:
-                      "transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)",
-                    zIndex: 5,
-                  }}
+                  className="wheatstone-galv-needle"
+                  style={{ transform: `rotate(${needleRotation}deg)` }}
                 ></div>
                 {/* Scale marks */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "6px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    fontWeight: "bold",
-                    fontSize: "10px",
-                  }}
-                >
+                <div className="wheatstone-galv-zero">
                   0
                 </div>
                 <div
-                  style={{
-                    position: "absolute",
-                    bottom: "8px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    fontWeight: "bold",
-                    fontSize: "12px",
-                    color: isBalanced ? "#10b981" : "var(--text-muted)",
-                    letterSpacing: "1px",
-                  }}
+                  className={`wheatstone-galv-reading ${isBalanced ? "balanced" : "unbalanced"}`}
                 >
                   {displayV.toFixed(3)} A
                 </div>
               </div>
 
-              <div
-                style={{
-                  background: "rgba(0,0,0,0.3)",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  border: "1px solid #10b981",
-                  textAlign: "center",
-                  width: "120px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "0.9rem",
-                    color: "#10b981",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Known R
+              {/* Resistor Gaps Row */}
+              <div className="wheatstone-gaps-row">
+                {/* Left Gap */}
+                <div className="wheatstone-gap wheatstone-gap-left">
+                  <div className="wheatstone-gap-label">
+                    Unknown R<sub>x</sub>
+                  </div>
+                  <div style={{ fontWeight: "bold" }}>Left Gap</div>
                 </div>
-                <div style={{ fontWeight: "bold" }}>{knownR} Ω</div>
+
+                {/* Known R */}
+                <div className="wheatstone-gap wheatstone-gap-right">
+                  <div className="wheatstone-gap-label">
+                    Known R
+                  </div>
+                  <div style={{ fontWeight: "bold" }}>{knownR} Ω</div>
+                </div>
               </div>
             </div>
 
             {/* Meter Bridge Wire */}
-            <div
-              style={{ width: "100%", position: "relative", padding: "20px 0" }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  color: "var(--text-muted)",
-                  fontSize: "0.8rem",
-                  marginBottom: "8px",
-                  padding: "0 10px",
-                }}
-              >
+            <div className="wheatstone-slider-wrapper">
+              <div className="wheatstone-slider-labels">
                 <span>0 cm</span>
                 <span>100 cm</span>
               </div>
@@ -380,56 +248,22 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                   height: "6px",
                 }}
               />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  marginTop: "16px",
-                  fontWeight: "bold",
-                  fontSize: "1.2rem",
-                  color: "var(--primary)",
-                }}
-              >
+              <div className="wheatstone-slider-value">
                 L = {jockeyL.toFixed(1)} cm
               </div>
             </div>
           </div>
 
           {/* Known R Control */}
-          <div
-            className="glass-panel"
-            style={{ padding: "24px", background: "rgba(15, 23, 42, 0.9)" }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "16px",
-              }}
-            >
-              <div
-                style={{
-                  padding: "8px",
-                  background: "#10b98133",
-                  borderRadius: "50%",
-                  color: "#10b981",
-                }}
-              >
+          <div className="glass-panel wheatstone-panel">
+            <div className="wheatstone-panel-header">
+              <div className="wheatstone-icon-green">
                 <Activity size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Resistance Box (Known R)</h3>
             </div>
 
-            <div
-              className="device-display green"
-              style={{
-                fontSize: "2.5rem",
-                textAlign: "right",
-                letterSpacing: "2px",
-                marginBottom: "16px",
-              }}
-            >
+            <div className="device-display green wheatstone-meters">
               {knownR} Ω
             </div>
 
@@ -437,18 +271,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
               value={knownR}
               onChange={(e) => setKnownR(parseInt(e.target.value))}
               disabled={showAveragePhase || isEvaluated}
-              style={{
-                width: "100%",
-                padding: "12px",
-                background: "rgba(0,0,0,0.5)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "8px",
-                color: "white",
-                fontSize: "1.1rem",
-                cursor: showAveragePhase || isEvaluated ? "not-allowed" : "pointer",
-                outline: "none",
-                opacity: showAveragePhase || isEvaluated ? 0.7 : 1,
-              }}
+              className="wheatstone-select"
             >
               {(examConfig && examFixedResistors.length > 0 ? examFixedResistors : STANDARD_RESISTORS).map((r) => (
                 <option key={r} value={r}>
@@ -630,37 +453,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
             </div>
           )}
 
-          <div
-            style={{
-              marginTop: "auto",
-              background: "rgba(255,255,255,0.03)",
-              padding: "20px",
-              borderRadius: "12px",
-              border: "1px solid var(--border-color)",
-            }}
-          >
-            <h4
-              style={{
-                marginBottom: "16px",
-                color: "var(--text-main)",
-                fontSize: "1.05rem",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span>{examConfig && showAveragePhase ? "احسب المتوسط النهائي" : "Calculate the Resistance"}</span>
-              {!isBalanced && !isEvaluated && !showAveragePhase && (
-                <span
-                  style={{
-                    fontSize: "0.8rem",
-                    color: "#ef4444",
-                    animation: "pulse 2s infinite",
-                  }}
-                >
-                  Must balance bridge first!
-                </span>
-              )}
+          {/* Student Input Section */}
+          <div className="wheatstone-student-input">
+            <h4 className="wheatstone-student-title">
+              {examConfig && showAveragePhase ? "حساب متوسط الدائرة" : (examConfig ? "تسجيل قراءة الـ L الحالية" : "Calculate the Unknown R")}
             </h4>
 
             <form
@@ -670,10 +466,13 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                    if (showAveragePhase) {
                       const avg = parseFloat(studentAverage);
                       if (isNaN(avg)) return;
-                      
                       setIsEvaluated(true);
-                      const resultsStr = examFixedResistors.map(r => `R${r}:${examStepResults[r]}Ω`).join(" | ") + ` | Avg:${avg}Ω`;
-                      onSubmitResult(resultsStr, rx);
+                      
+                      const pointsStr = Object.entries(examStepResults)
+                         .map(([k, ans], i) => `P${i+1}(Rk:${k}Ω -> Rx:${ans}Ω)`)
+                         .join(" | ");
+                      const finalStr = `${pointsStr} | Avg Rx: ${avg}Ω`;
+                      onSubmitResult(finalStr, rx);
                    } else {
                       const parsedAnswer = parseFloat(studentAnswer);
                       if (isNaN(parsedAnswer)) return;
@@ -693,10 +492,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                    handleEvaluate(e);
                 }
               }}
-              style={{ display: "flex", gap: "12px", alignItems: "stretch", flexDirection: examConfig && showAveragePhase ? "column" : "row", flexWrap: "wrap" }}
+              className="wheatstone-form"
             >
               {!showAveragePhase ? (
-                <div style={{ flex: 1, position: "relative", minWidth: "150px" }}>
+                <div className="wheatstone-input-wrapper">
                   <input
                     type="number"
                     step="0.01"
@@ -705,17 +504,8 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     value={studentAnswer}
                     onChange={(e) => setStudentAnswer(e.target.value)}
                     disabled={isEvaluated || !isBalanced}
+                    className="wheatstone-input"
                     style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      paddingRight: "40px",
-                      background: "rgba(0,0,0,0.2)",
-                      border: "1px solid var(--glass-border)",
-                      borderRadius: "8px",
-                      color: "#fff",
-                      fontSize: "1rem",
-                      outline: "none",
-                      transition: "all 0.2s",
                       borderColor: isEvaluated
                         ? examConfig
                           ? "#3b82f6"
@@ -726,20 +516,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                       opacity: !isBalanced && !isEvaluated ? 0.5 : 1,
                     }}
                   />
-                  <span
-                    style={{
-                      position: "absolute",
-                      right: "16px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    Ω
-                  </span>
+                  <span className="wheatstone-unit">Ω</span>
                 </div>
               ) : (
-                <div style={{ flex: 1, position: "relative", width: "100%" }}>
+                <div className="wheatstone-input-wrapper">
                   <input
                     type="number"
                     step="0.01"
@@ -748,59 +528,65 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     value={studentAverage}
                     onChange={(e) => setStudentAverage(e.target.value)}
                     disabled={isEvaluated}
+                    className="wheatstone-input"
                     style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      paddingRight: "40px",
-                      background: "rgba(0,0,0,0.2)",
-                      border: "1px solid #3b82f6",
-                      borderRadius: "8px",
-                      color: "#fff",
-                      fontSize: "1rem",
-                      outline: "none",
                       borderColor: isEvaluated ? "#10b981" : "#3b82f6"
                     }}
                   />
-                  <span style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>Ω</span>
+                  <span className="wheatstone-unit">Ω</span>
                 </div>
               )}
 
               {!isEvaluated ? (
-                <button
-                  type="submit"
-                  disabled={showAveragePhase ? !studentAverage.trim() : (!studentAnswer.trim() || !isBalanced)}
-                  style={{
-                    background: "var(--primary)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "10px 20px",
-                    fontWeight: 600,
-                    cursor:
-                      (showAveragePhase ? studentAverage.trim() : (studentAnswer.trim() && isBalanced))
-                        ? "pointer"
-                        : "not-allowed",
-                    opacity: (showAveragePhase ? studentAverage.trim() : (studentAnswer.trim() && isBalanced)) ? 1 : 0.6,
-                    height: showAveragePhase ? "45px" : "auto"
-                  }}
-                >
-                  {examConfig ? (showAveragePhase ? "إرسال النتيجة" : "تسجيل القيمه") : "Check"}
-                </button>
+                <div className="wheatstone-submit-container">
+                  <button
+                    type="submit"
+                    disabled={
+                      !canSubmit ||
+                      (showAveragePhase
+                        ? !studentAverage.trim()
+                        : !studentAnswer.trim() || !isBalanced)
+                    }
+                    className="wheatstone-submit-btn"
+                    style={{
+                      cursor:
+                        canSubmit &&
+                        (showAveragePhase
+                          ? studentAverage.trim()
+                          : studentAnswer.trim() && isBalanced)
+                          ? "pointer"
+                          : "not-allowed",
+                      opacity:
+                        canSubmit &&
+                        (showAveragePhase
+                          ? studentAverage.trim()
+                          : studentAnswer.trim() && isBalanced)
+                          ? 1
+                          : 0.6,
+                      height: showAveragePhase ? "45px" : "auto",
+                    }}
+                  >
+                    {!canSubmit ? (
+                      <span className="flex-center">
+                        <RefreshCw size={16} className="animate-spin" />
+                        انتظر {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")} دقيقة
+                      </span>
+                    ) : (
+                      <>{examConfig ? (showAveragePhase ? "إرسال النتيجة النهائية" : "تسجيل القيمه") : "Check"}</>
+                    )}
+                  </button>
+                  {!canSubmit && (
+                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
+                      يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+                    </p>
+                  )}
+                </div>
               ) : (
                 !examConfig && (
                   <button
                     type="button"
                     onClick={generateNewRx}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--primary)",
-                      color: "var(--primary)",
-                      borderRadius: "8px",
-                      padding: "0 16px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
+                    className="wheatstone-retry-btn"
                   >
                     <RefreshCw size={18} /> Retry
                   </button>

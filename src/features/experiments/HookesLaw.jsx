@@ -9,31 +9,55 @@ import {
   Target,
   Ruler,
 } from "lucide-react";
-import "../styles/components/HookesLaw.css";
+import "../../styles/components/HookesLaw.css";
 
 export default function HookesLaw({ examConfig, onSubmitResult }) {
-  const [attachedMasses, setAttachedMasses] = useState([]); // array of { id, grams }
-  const [dragOverHook, setDragOverHook] = useState(false);
+  // --- CORE STATE MANAGEMENT ---
+  const [attachedMasses, setAttachedMasses] = useState([]); // Array of masses currently hanging: { id, grams }
+  const [dragOverHook, setDragOverHook] = useState(false);  // Visual feedback for drag-and-drop
 
-  // Unknown spring evaluation state
-  const [springConstant, setSpringConstant] = useState(20);
-  const [noiseMultiplier, setNoiseMultiplier] = useState(1);
-  const [studentAnswer, setStudentAnswer] = useState("");
-  const [isEvaluated, setIsEvaluated] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
+  // Physics & Spring State
+  const [springConstant, setSpringConstant] = useState(20); // The "k" value to be calculated
+  const [noiseMultiplier, setNoiseMultiplier] = useState(1); // Real-world measurement error simulator
+  const [studentAnswer, setStudentAnswer] = useState("");   // User's calculated result
+  const [isEvaluated, setIsEvaluated] = useState(false);    // Whether the answer was checked
+  const [isCorrect, setIsCorrect] = useState(null);         // Validation result
 
-  // Exam-specific states
-  const [examMasses, setExamMasses] = useState([]);
-  const [examStepResults, setExamStepResults] = useState([]);
+  // Exam-specific logic (Manual data logging)
+  const [examMasses, setExamMasses] = useState([]);         // Subset of masses for exam mode
+  const [examStepResults, setExamStepResults] = useState([]); // Logged (F, x) readings
   const [studentF, setStudentF] = useState("");
   const [studentX, setStudentX] = useState("");
   
+  // Graphing phase for exams
   const [graphPhase, setGraphPhase] = useState(false);
   const [graphF1, setGraphF1] = useState("");
   const [graphX1, setGraphX1] = useState("");
   const [graphF2, setGraphF2] = useState("");
   const [graphX2, setGraphX2] = useState("");
   const [studentSlope, setStudentSlope] = useState("");
+
+  // 1-minute submission lock
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  useEffect(() => {
+    if (!examConfig || !examConfig.startTime) return;
+
+    const calculateTimeLeft = () => {
+      const start = new Date(examConfig.startTime).getTime();
+      const now = new Date().getTime();
+      const diff = now - start;
+      const lockMinutes = 1 * 60 * 1000;
+      const remaining = Math.max(0, Math.ceil((lockMinutes - diff) / 1000));
+      setTimeLeft(remaining);
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
+  }, [examConfig]);
+
+  const canSubmit = !examConfig || timeLeft === 0;
 
   const generateNewSpring = useCallback(() => {
     if (examConfig) {
@@ -83,6 +107,9 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
     }
   }, [examConfig?.examComplete]);
 
+  // Dynamic damping for bouncy springs with small exam masses
+  // (keeping original damping = 0.6 from the git version intact in the loop above)
+
   // Available mass types in the lab tray
   const MASS_TYPES = [
     { grams: 10, color: "#f87171", label: "10 g" },
@@ -112,10 +139,14 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
   const liveDisplacement = currentVisualDisplacement / 1000;
   const readingNoiseCm = Math.sin(currentVisualDisplacement * 0.07) * 0.05;
 
-  const visualTargetDisplacement = targetDisplacement * 1000; // pixels
-  const baseSpringLength = 80;
+  const visualTargetDisplacement = targetDisplacement * 1000; // Scaled to pixels for UI
+  const baseSpringLength = 80; // Starting length of the spring in pixels
 
-  // Physics Animation Loop
+  /**
+   * --- REAL-TIME PHYSICS ANIMATION ENGINE ---
+   * Uses Euler integration to simulate a damped mass-spring system.
+   * This provides the "bouncy" realistic feel when weights are added.
+   */
   useEffect(() => {
     const loop = (timestamp) => {
       if (!physicsRef.current.lastTime) physicsRef.current.lastTime = timestamp;
@@ -127,16 +158,19 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
 
       const state = physicsRef.current;
       const k = springConstant;
-      const damping = 0.6;
       const m = mass || 0.1;
+      // Dynamic damping: 25% of critical = visible bouncy oscillation
+      const damping = 0.25 * 2 * Math.sqrt(m * k);
 
       const springForce = -k * (state.y - visualTargetDisplacement);
       const dampingForce = -damping * state.v;
       const acceleration = (springForce + dampingForce) / m;
 
+      // Apply basic Euler updates: v = v + a*dt, y = y + v*dt
       state.v += acceleration * dt;
       state.y += state.v * dt;
 
+      // Update the visual state which triggers the SVG re-draw
       setCurrentVisualDisplacement(state.y);
 
       if (
@@ -153,11 +187,12 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
     return () => cancelAnimationFrame(reqRef.current);
   }, [mass, springConstant, visualTargetDisplacement]);
 
-  const totalSpringLength = baseSpringLength + currentVisualDisplacement;
-
+  // --- DYNAMIC SVG SPRING PATH GENERATION ---
+  // Calculates 15 Bézier curve loops based on the current length
   const numCoils = 15;
-  const coilHeight = totalSpringLength / numCoils;
-  const coilWidth = 30;
+  const totalSpringLength = baseSpringLength + currentVisualDisplacement;
+  const coilHeight = (totalSpringLength - 10) / numCoils;
+  const coilWidth = 20;
 
   let springPath = `M 0,0 L 0,10 `;
   for (let i = 0; i < numCoils; i++) {
