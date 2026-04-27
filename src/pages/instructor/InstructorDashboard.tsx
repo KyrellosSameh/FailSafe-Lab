@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LogOut,
   PlusCircle,
@@ -102,6 +102,33 @@ function InstructorDashboard({
     fetchAlerts();
   }, [instructorId]);
 
+  // Play alert beep sound
+  const playAlertSound = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Create a beep sequence: beep-beep-beep
+      const playBeep = (startTime, freq = 880) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.15);
+      };
+
+      playBeep(ctx.currentTime, 880);
+      playBeep(ctx.currentTime + 0.2, 880);
+      playBeep(ctx.currentTime + 0.4, 1100);
+    } catch (e) {
+      console.warn("Could not play alert sound:", e);
+    }
+  };
+
   // Realtime subscription for new alerts
   useEffect(() => {
     const channel = supabase
@@ -115,10 +142,7 @@ function InstructorDashboard({
           filter: `instructor_id=eq.${instructorId}`,
         },
         async (payload) => {
-          console.log(
-            "[InstructorDashboard] New proctor alert received:",
-            payload,
-          );
+
 
           const newAlert = payload.new;
           let snapshotUrl = null;
@@ -148,32 +172,7 @@ function InstructorDashboard({
     };
   }, [instructorId]);
 
-  // Play alert beep sound
-  const playAlertSound = () => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-      // Create a beep sequence: beep-beep-beep
-      const playBeep = (startTime, freq = 880) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.3, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + 0.15);
-      };
-
-      playBeep(ctx.currentTime, 880);
-      playBeep(ctx.currentTime + 0.2, 880);
-      playBeep(ctx.currentTime + 0.4, 1100);
-    } catch (e) {
-      console.warn("Could not play alert sound:", e);
-    }
-  };
 
   // Mark alert as read
   const handleDismissAlert = async (alertId) => {

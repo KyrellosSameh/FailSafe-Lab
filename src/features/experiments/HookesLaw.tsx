@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Scale,
   ArrowDown,
@@ -6,39 +6,59 @@ import {
   TriangleRight,
   CheckCircle2,
   XCircle,
-  Target,
-  Ruler,
 } from "lucide-react";
 import "../../styles/components/HookesLaw.css";
+import { ExamConfig } from "../../layouts/StudentLabLayout";
 
-export default function HookesLaw({ examConfig, onSubmitResult }) {
+interface AttachedMass {
+  id: number;
+  grams: number;
+}
+
+interface MassType {
+  grams: number;
+  color: string;
+  label: string;
+}
+
+interface ExamStepResult {
+  f: string;
+  x: string;
+}
+
+interface HookesLawProps {
+  examConfig: ExamConfig | null;
+  onSubmitResult: (studentValue: string | number, actualValue: string | number) => void;
+}
+
+export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps) {
   // --- CORE STATE MANAGEMENT ---
-  const [attachedMasses, setAttachedMasses] = useState([]); // Array of masses currently hanging: { id, grams }
-  const [dragOverHook, setDragOverHook] = useState(false);  // Visual feedback for drag-and-drop
+  const [attachedMasses, setAttachedMasses] = useState<AttachedMass[]>([]); // Array of masses currently hanging: { id, grams }
+  const [dragOverHook, setDragOverHook] = useState<boolean>(false);  // Visual feedback for drag-and-drop
 
   // Physics & Spring State
-  const [springConstant, setSpringConstant] = useState(20); // The "k" value to be calculated
-  const [noiseMultiplier, setNoiseMultiplier] = useState(1); // Real-world measurement error simulator
-  const [studentAnswer, setStudentAnswer] = useState("");   // User's calculated result
-  const [isEvaluated, setIsEvaluated] = useState(false);    // Whether the answer was checked
-  const [isCorrect, setIsCorrect] = useState(null);         // Validation result
+  const [springConstant, setSpringConstant] = useState<number>(20); // The "k" value to be calculated
+  const [noiseMultiplier, setNoiseMultiplier] = useState<number>(1); // Real-world measurement error simulator
+  const [studentAnswer, setStudentAnswer] = useState<string>("");   // User's calculated result
+  const [isEvaluated, setIsEvaluated] = useState<boolean>(false);    // Whether the answer was checked
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);         // Validation result
 
   // Exam-specific logic (Manual data logging)
-  const [examMasses, setExamMasses] = useState([]);         // Subset of masses for exam mode
-  const [examStepResults, setExamStepResults] = useState([]); // Logged (F, x) readings
-  const [studentF, setStudentF] = useState("");
-  const [studentX, setStudentX] = useState("");
+  const [examMasses, setExamMasses] = useState<MassType[]>([]);         // Subset of masses for exam mode
+  const [examStepResults, setExamStepResults] = useState<ExamStepResult[]>([]); // Logged (F, x) readings
+  const [studentF, setStudentF] = useState<string>("");
+  const [studentX, setStudentX] = useState<string>("");
   
   // Graphing phase for exams
-  const [graphPhase, setGraphPhase] = useState(false);
-  const [graphF1, setGraphF1] = useState("");
-  const [graphX1, setGraphX1] = useState("");
-  const [graphF2, setGraphF2] = useState("");
-  const [graphX2, setGraphX2] = useState("");
-  const [studentSlope, setStudentSlope] = useState("");
+  const [graphPhase, setGraphPhase] = useState<boolean>(false);
+  const [graphF1, setGraphF1] = useState<string>("");
+  const [graphX1, setGraphX1] = useState<string>("");
+  const [graphF2, setGraphF2] = useState<string>("");
+  const [graphX2, setGraphX2] = useState<string>("");
+  const [studentSlope, setStudentSlope] = useState<string>("");
 
   // 1-minute submission lock
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     if (!examConfig || !examConfig.startTime) return;
@@ -107,48 +127,44 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
     }
   }, [examConfig?.examComplete]);
 
-  // Dynamic damping for bouncy springs with small exam masses
-  // (keeping original damping = 0.6 from the git version intact in the loop above)
-
   // Available mass types in the lab tray
-  const MASS_TYPES = [
+  const MASS_TYPES = useMemo(() => [
     { grams: 10, color: "#f87171", label: "10 g" },
     { grams: 20, color: "#fb923c", label: "20 g" },
     { grams: 50, color: "#facc15", label: "50 g" },
     { grams: 100, color: "#4ade80", label: "100 g" },
     { grams: 200, color: "#60a5fa", label: "200 g" },
-  ];
+  ], []);
   
   const activeMasses = examConfig && examMasses.length > 0 ? examMasses : MASS_TYPES;
 
   const mass = attachedMasses.reduce((sum, m) => sum + m.grams / 1000, 0); // kg
-  const [currentVisualDisplacement, setCurrentVisualDisplacement] = useState(0);
+  const [currentVisualDisplacement, setCurrentVisualDisplacement] = useState<number>(0);
 
-  const physicsRef = React.useRef({ y: 0, v: 0, lastTime: 0 });
-  const reqRef = React.useRef();
+  const physicsRef = useRef({ y: 0, v: 0, lastTime: 0 });
+  const reqRef = useRef<number>();
 
   const g = 9.8; // m/s^2
 
-  // Target Physics
-  const theoreticalForce = mass * g; // Newtons
-  const theoreticalDisplacement = theoreticalForce / springConstant; // meters
+  // Target Physics optimized with useMemo
+  const theoreticalForce = useMemo(() => mass * g, [mass]); // Newtons
+  const theoreticalDisplacement = useMemo(() => theoreticalForce / springConstant, [theoreticalForce, springConstant]); // meters
   const force = theoreticalForce;
-  const targetDisplacement = theoreticalDisplacement * noiseMultiplier;
+  const targetDisplacement = useMemo(() => theoreticalDisplacement * noiseMultiplier, [theoreticalDisplacement, noiseMultiplier]);
 
   // Live displacement for UI
-  const liveDisplacement = currentVisualDisplacement / 1000;
-  const readingNoiseCm = Math.sin(currentVisualDisplacement * 0.07) * 0.05;
+  const liveDisplacement = useMemo(() => currentVisualDisplacement / 1000, [currentVisualDisplacement]);
+  const readingNoiseCm = useMemo(() => Math.sin(currentVisualDisplacement * 0.07) * 0.05, [currentVisualDisplacement]);
 
-  const visualTargetDisplacement = targetDisplacement * 1000; // Scaled to pixels for UI
+  const visualTargetDisplacement = useMemo(() => targetDisplacement * 1000, [targetDisplacement]); // Scaled to pixels for UI
   const baseSpringLength = 80; // Starting length of the spring in pixels
 
   /**
    * --- REAL-TIME PHYSICS ANIMATION ENGINE ---
    * Uses Euler integration to simulate a damped mass-spring system.
-   * This provides the "bouncy" realistic feel when weights are added.
    */
   useEffect(() => {
-    const loop = (timestamp) => {
+    const loop = (timestamp: number) => {
       if (!physicsRef.current.lastTime) physicsRef.current.lastTime = timestamp;
       const dt = Math.min(
         (timestamp - physicsRef.current.lastTime) / 1000,
@@ -184,31 +200,35 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
     physicsRef.current.lastTime = 0;
     reqRef.current = requestAnimationFrame(loop);
 
-    return () => cancelAnimationFrame(reqRef.current);
+    return () => {
+      if (reqRef.current) cancelAnimationFrame(reqRef.current);
+    };
   }, [mass, springConstant, visualTargetDisplacement]);
 
   // --- DYNAMIC SVG SPRING PATH GENERATION ---
-  // Calculates 15 Bézier curve loops based on the current length
   const numCoils = 15;
-  const totalSpringLength = baseSpringLength + currentVisualDisplacement;
-  const coilHeight = (totalSpringLength - 10) / numCoils;
-  const coilWidth = 20;
+  const totalSpringLength = useMemo(() => baseSpringLength + currentVisualDisplacement, [currentVisualDisplacement]);
+  
+  const springPath = useMemo(() => {
+    const coilHeight = (totalSpringLength - 10) / numCoils;
+    const coilWidth = 20;
+    let path = `M 0,0 L 0,10 `;
+    for (let i = 0; i < numCoils; i++) {
+      const yControl1 = 10 + i * coilHeight + coilHeight / 3;
+      const yControl2 = 10 + i * coilHeight + (2 * coilHeight) / 3;
+      const yEnd = 10 + (i + 1) * coilHeight;
 
-  let springPath = `M 0,0 L 0,10 `;
-  for (let i = 0; i < numCoils; i++) {
-    const yControl1 = 10 + i * coilHeight + coilHeight / 3;
-    const yControl2 = 10 + i * coilHeight + (2 * coilHeight) / 3;
-    const yEnd = 10 + (i + 1) * coilHeight;
-
-    if (i % 2 === 0) {
-      springPath += `C ${coilWidth},${yControl1} ${coilWidth},${yControl2} 0,${yEnd} `;
-    } else {
-      springPath += `C -${coilWidth},${yControl1} -${coilWidth},${yControl2} 0,${yEnd} `;
+      if (i % 2 === 0) {
+        path += `C ${coilWidth},${yControl1} ${coilWidth},${yControl2} 0,${yEnd} `;
+      } else {
+        path += `C -${coilWidth},${yControl1} -${coilWidth},${yControl2} 0,${yEnd} `;
+      }
     }
-  }
-  springPath += `L 0,${totalSpringLength + 20}`;
+    path += `L 0,${totalSpringLength + 20}`;
+    return path;
+  }, [totalSpringLength]);
 
-  const handleEvaluate = (e) => {
+  const handleEvaluate = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAnswer = parseFloat(studentAnswer);
     if (isNaN(parsedAnswer)) return;
@@ -231,10 +251,10 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
   };
 
   return (
-    <div className="glass-panel p-6 w-full max-w-7xl animate-fade-in hookes-law-container">
-      <div className="hookes-law-header">
+    <section className="glass-panel p-6 w-full max-w-7xl animate-fade-in hookes-law-container" aria-labelledby="hookes-law-heading">
+      <header className="hookes-law-header">
         <div>
-          <h2 className="hookes-law-title">
+          <h2 id="hookes-law-heading" className="hookes-law-title">
             Hooke's Law
           </h2>
           <p className="hookes-law-subtitle">
@@ -243,22 +263,20 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
           </p>
         </div>
         {!examConfig && (
-          <div className="hookes-law-formula">
-            <span>
-              k = F / x
-            </span>
+          <div className="hookes-law-formula" aria-hidden="true">
+            <span>k = F / x</span>
           </div>
         )}
-      </div>
+      </header>
 
       <div className="responsive-grid hookes-law-grid">
         {/* Simulation Area */}
-        <div className="glass-panel hookes-law-sim-area">
+        <section className="glass-panel hookes-law-sim-area" aria-label="Spring Simulation Environment">
           {/* Top Support */}
-          <div className="hookes-law-top-support"></div>
+          <div className="hookes-law-top-support" aria-hidden="true"></div>
 
           {/* Ruler */}
-          <div className="hookes-law-ruler">
+          <div className="hookes-law-ruler" aria-hidden="true">
             {Array.from({ length: 51 }, (_, cm) => {
               const val = cm / 100;
               const isLarge = cm % 10 === 0;
@@ -356,7 +374,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
           </div>
 
           {/* Spring Matrix */}
-          <div className="hookes-law-spring-matrix">
+          <div className="hookes-law-spring-matrix" aria-hidden="true">
             <svg
               width="100"
               height={totalSpringLength + 20}
@@ -475,14 +493,14 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
               </div>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Right Side: Modules */}
         <div className="hookes-law-right-panel">
           {/* Mass Tray */}
-          <div className="glass-panel hookes-law-module">
+          <section className="glass-panel hookes-law-module" aria-label="Mass Selection Tray">
             <h3 className="hookes-law-module-title">
-              <Scale size={18} color="var(--primary)" /> Mass Tray
+              <Scale size={18} color="var(--primary)" aria-hidden="true" /> Mass Tray
             </h3>
             <p className="hookes-law-module-subtitle">
               Drag a mass and drop it on the spring hook
@@ -493,7 +511,8 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                 <div
                   key={mt.grams}
                   draggable
-                  onDragStart={(e) => e.dataTransfer.setData("grams", mt.grams)}
+                  onDragStart={(e) => e.dataTransfer.setData("grams", mt.grams.toString())}
+                  aria-label={`Mass ${mt.label}`}
                   style={{
                     width: `${32 + mt.grams * 0.18}px`,
                     height: `${28 + mt.grams * 0.12}px`,
@@ -543,6 +562,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                     { id: Date.now(), grams },
                   ]);
               }}
+              aria-label="Drop Area for Masses"
               style={{
                 border: `2px dashed ${dragOverHook ? "#60a5fa" : "rgba(255,255,255,0.2)"}`,
                 borderRadius: "10px",
@@ -569,7 +589,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                 attachedMasses.map((m) => {
                   const mt = activeMasses.find((t) => t.grams === m.grams);
                   return (
-                    <div
+                    <button
                       key={m.id}
                       onClick={() =>
                         setAttachedMasses((prev) =>
@@ -577,6 +597,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                         )
                       }
                       title="Click to remove"
+                      aria-label={`Remove ${m.grams} gram mass`}
                       style={{
                         padding: "3px 10px",
                         background: `${mt?.color}33`,
@@ -589,7 +610,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                       }}
                     >
                       {m.grams}g ✕
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -613,6 +634,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                 </span>
                 <button
                   onClick={() => setAttachedMasses([])}
+                  aria-label="Clear all attached masses"
                   style={{
                     background: "rgba(239,68,68,0.15)",
                     border: "1px solid #ef4444",
@@ -627,12 +649,13 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                 </button>
               </div>
             )}
-          </div>
+          </section>
 
           {/* Live Data */}
           {!examConfig && (
-            <div
+            <section
               className="glass-panel"
+              aria-label="Live Telemetry"
               style={{
                 padding: "20px",
                 background: "rgba(16, 185, 129, 0.05)",
@@ -648,7 +671,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
               >
                 Live Reading
               </h3>
-              <div className="live-reading-grid">
+              <div className="live-reading-grid" aria-live="polite" aria-atomic="true">
                 <div className="live-reading-item">
                   <span className="live-reading-label">
                     Weight (F = m×g):
@@ -666,12 +689,13 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                   </span>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
           {/* Evaluation Block */}
-          <div
+          <section
             className="glass-panel"
+            aria-label="Evaluation Block"
             style={{
               padding: "24px",
               display: "flex",
@@ -679,7 +703,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
               background: "rgba(15, 23, 42, 0.9)",
             }}
           >
-            <div
+            <header
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -694,11 +718,12 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                   borderRadius: "50%",
                   color: "#f59e0b",
                 }}
+                aria-hidden="true"
               >
                 <TriangleRight size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Unknown Spring (k)</h3>
-            </div>
+            </header>
 
             <div
               style={{
@@ -742,7 +767,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
             </div>
 
           {examConfig && (
-            <div style={{ marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr", gap: "8px" }}>
+            <div style={{ marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr", gap: "8px" }} aria-live="polite">
                {examStepResults.length > 0 && <h4 style={{ margin: "0 0 8px 0", color: "var(--primary)" }}>النقاط المسجلة ({examStepResults.length}/4)</h4>}
                {examStepResults.map((res, idx) => (
                   <div key={idx} style={{
@@ -764,6 +789,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                               setExamStepResults(newResults);
                               if (newResults.length < 4) setGraphPhase(false);
                            }}
+                           aria-label={`Delete record ${idx + 1}`}
                            style={{
                               background: "rgba(239, 68, 68, 0.2)",
                               border: "none",
@@ -848,6 +874,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                           onChange={(e) => setStudentF(e.target.value)}
                           disabled={isEvaluated || examStepResults.length >= 4}
                           className="exam-input"
+                          aria-label="Force F in Newtons"
                         />
                         <input
                           type="text"
@@ -856,6 +883,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                           onChange={(e) => setStudentX(e.target.value)}
                           disabled={isEvaluated || examStepResults.length >= 4}
                           className="exam-input"
+                          aria-label="Displacement x in meters"
                         />
                       </div>
                     )}
@@ -869,6 +897,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                           value={studentAnswer}
                           onChange={(e) => setStudentAnswer(e.target.value)}
                           disabled={isEvaluated || mass === 0}
+                          aria-label="Calculated Spring Constant"
                           style={{
                             width: "100%", padding: "12px 16px", paddingRight: "46px", background: "rgba(0,0,0,0.2)",
                             border: "1px solid var(--glass-border)", borderRadius: "8px", color: "#fff",
@@ -877,7 +906,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                             opacity: mass === 0 && !isEvaluated ? 0.5 : 1,
                           }}
                         />
-                        <span style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>N/m</span>
+                        <span aria-hidden="true" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>N/m</span>
                       </div>
                     )}
                   </>
@@ -887,16 +916,16 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                       قم برسم علاقة بيانية بين القوة المحسوبة (F) والازاحة (x)، واستخرج نقطتين جديدتين من الخط المستقيم، ثم احسب الميل الذي يمثل الثابت (k).
                     </div>
                     <div className="exam-input-group">
-                      <input type="text" placeholder="F1 (نقطة 1)" value={graphF1} onChange={(e)=>setGraphF1(e.target.value)} disabled={isEvaluated} className="exam-input" />
-                      <input type="text" placeholder="x1 (نقطة 1)" value={graphX1} onChange={(e)=>setGraphX1(e.target.value)} disabled={isEvaluated} className="exam-input" />
+                      <input type="text" placeholder="F1 (نقطة 1)" value={graphF1} onChange={(e)=>setGraphF1(e.target.value)} disabled={isEvaluated} className="exam-input" aria-label="Point 1 Force F1" />
+                      <input type="text" placeholder="x1 (نقطة 1)" value={graphX1} onChange={(e)=>setGraphX1(e.target.value)} disabled={isEvaluated} className="exam-input" aria-label="Point 1 Displacement x1" />
                     </div>
                     <div className="exam-input-group">
-                      <input type="text" placeholder="F2 (نقطة 2)" value={graphF2} onChange={(e)=>setGraphF2(e.target.value)} disabled={isEvaluated} className="exam-input" />
-                      <input type="text" placeholder="x2 (نقطة 2)" value={graphX2} onChange={(e)=>setGraphX2(e.target.value)} disabled={isEvaluated} className="exam-input" />
+                      <input type="text" placeholder="F2 (نقطة 2)" value={graphF2} onChange={(e)=>setGraphF2(e.target.value)} disabled={isEvaluated} className="exam-input" aria-label="Point 2 Force F2" />
+                      <input type="text" placeholder="x2 (نقطة 2)" value={graphX2} onChange={(e)=>setGraphX2(e.target.value)} disabled={isEvaluated} className="exam-input" aria-label="Point 2 Displacement x2" />
                     </div>
                     <div style={{ position: "relative", width: "100%" }}>
-                      <input type="number" step="0.01" min="0" placeholder="قيمة الثابت المحسوبة (N/m)..." value={studentSlope} onChange={(e)=>setStudentSlope(e.target.value)} disabled={isEvaluated} style={{ width: "100%", padding: "12px 16px", paddingRight: "40px", background: "rgba(0,0,0,0.2)", border: "1px solid #3b82f6", borderRadius: "8px", color: "#fff", fontSize: "1rem", outline: "none", borderColor: isEvaluated ? "#10b981" : "#3b82f6" }} />
-                      <span style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>N/m</span>
+                      <input type="number" step="0.01" min="0" placeholder="قيمة الثابت المحسوبة (N/m)..." value={studentSlope} onChange={(e)=>setStudentSlope(e.target.value)} disabled={isEvaluated} aria-label="Calculated Slope Constant k" style={{ width: "100%", padding: "12px 16px", paddingRight: "40px", background: "rgba(0,0,0,0.2)", border: "1px solid #3b82f6", borderRadius: "8px", color: "#fff", fontSize: "1rem", outline: "none", borderColor: isEvaluated ? "#10b981" : "#3b82f6" }} />
+                      <span aria-hidden="true" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>N/m</span>
                     </div>
                   </div>
                 )}
@@ -906,6 +935,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                   <button
                     type="submit"
                     disabled={graphPhase ? (!studentSlope.trim() || !graphF1.trim() || !graphX1.trim() || !graphF2.trim() || !graphX2.trim()) : (examConfig ? (!studentF.trim() || !studentX.trim()) : (!studentAnswer.trim() || mass === 0))}
+                    aria-disabled={graphPhase ? (!studentSlope.trim() || !graphF1.trim() || !graphX1.trim() || !graphF2.trim() || !graphX2.trim()) : (examConfig ? (!studentF.trim() || !studentX.trim()) : (!studentAnswer.trim() || mass === 0))}
                     style={{
                       background: "var(--primary)", color: "#fff", border: "none",
                       borderRadius: "8px", padding: "10px 24px", fontWeight: 600,
@@ -917,8 +947,8 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                   </button>
                 ) : (
                   !examConfig && (
-                    <button type="button" onClick={generateNewSpring} style={{ background: "transparent", border: "1px solid var(--primary)", color: "var(--primary)", borderRadius: "8px", padding: "10px 24px", display: "flex", alignItems: "center", gap: "8px" }}>
-                      <RefreshCw size={18} /> Retry
+                    <button type="button" onClick={generateNewSpring} aria-label="Retry Hooke's Law Experiment" style={{ background: "transparent", border: "1px solid var(--primary)", color: "var(--primary)", borderRadius: "8px", padding: "10px 24px", display: "flex", alignItems: "center", gap: "8px" }}>
+                      <RefreshCw size={18} aria-hidden="true" /> Retry
                     </button>
                   )
                 )}
@@ -927,6 +957,8 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
 
               {isEvaluated && (
                 <div
+                  role="alert"
+                  aria-live="assertive"
                   style={{
                     marginTop: "16px",
                     padding: "12px",
@@ -947,18 +979,21 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                       size={24}
                       color="#3b82f6"
                       style={{ flexShrink: 0 }}
+                      aria-hidden="true"
                     />
                   ) : isCorrect ? (
                     <CheckCircle2
                       size={24}
                       color="#10b981"
                       style={{ flexShrink: 0 }}
+                      aria-hidden="true"
                     />
                   ) : (
                     <XCircle
                       size={24}
                       color="#ef4444"
                       style={{ flexShrink: 0 }}
+                      aria-hidden="true"
                     />
                   )}
                   <div>
@@ -994,9 +1029,9 @@ export default function HookesLaw({ examConfig, onSubmitResult }) {
                 </div>
               )}
             </div>
-          </div>
+          </section>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, LogOut, Activity, Atom, Scale, TestTube } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 import OhmsLaw from "../features/experiments/OhmsLaw";
 import WheatstoneBridge from "../features/experiments/WheatstoneBridge";
@@ -15,6 +16,27 @@ export const EXPERIMENT_NAV_ITEMS = [
   { id: "viscosity", label: "Viscosity", icon: <TestTube size={20} /> },
 ];
 
+export interface ExamConfig {
+  code: string;
+  studentId: string;
+  studentName: string;
+  experiment: string;
+  examComplete: boolean;
+  startTime: number;
+  parameters: any;
+}
+
+interface StudentLabLayoutProps {
+  isExamMode?: boolean;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  examConfig: ExamConfig | null;
+  setExamConfig: (config: ExamConfig | null) => void;
+  timeLeft: number | null;
+  showWarning: boolean;
+  handleExamSubmit: (studentValue: string | number, actualValue: string | number, isSilent?: boolean) => void;
+}
+
 export default function StudentLabLayout({
   isExamMode = false,
   activeTab,
@@ -24,13 +46,22 @@ export default function StudentLabLayout({
   timeLeft,
   showWarning,
   handleExamSubmit,
-}) {
+}: StudentLabLayoutProps) {
   const navigate = useNavigate();
+
+  const currentExperimentLabel = EXPERIMENT_NAV_ITEMS.find((n) => n.id === activeTab)?.label || "Experiment";
 
   return (
     <div className="app-container">
+      <Helmet>
+        <title>{currentExperimentLabel} | Virtual Physics Lab Simulator</title>
+        <meta name="description" content={`Perform the ${currentExperimentLabel} experiment interactively. Learn physics principles through our Virtual Lab Simulator.`} />
+        <meta property="og:title" content={`${currentExperimentLabel} | Virtual Physics Lab`} />
+        <meta property="og:description" content={`Perform the ${currentExperimentLabel} experiment interactively.`} />
+      </Helmet>
+
       {/* Sidebar Navigation */}
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="Experiment Navigation">
         <div
           className="sidebar-header"
           style={{
@@ -48,7 +79,7 @@ export default function StudentLabLayout({
               color: "white",
             }}
           >
-            <ShieldCheck size={24} />
+            <ShieldCheck size={24} aria-hidden="true" />
           </div>
           <div>
             <h1 style={{ fontSize: "1.2rem", lineHeight: "1.2" }}>
@@ -63,6 +94,7 @@ export default function StudentLabLayout({
         <nav
           className="sidebar-nav"
           style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+          aria-label="Experiments List"
         >
           {EXPERIMENT_NAV_ITEMS.filter(
             (item) => !examConfig || item.id === examConfig.experiment,
@@ -71,6 +103,8 @@ export default function StudentLabLayout({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
+                aria-current={activeTab === item.id ? "page" : undefined}
+                aria-label={`Open ${item.label} Experiment`}
                 style={{
                   display: "flex",
                   alignContent: "center",
@@ -117,6 +151,7 @@ export default function StudentLabLayout({
               setExamConfig(null);
               navigate("/");
             }}
+            aria-label={examConfig && !examConfig.examComplete ? "Withdraw from Exam" : "Exit Lab"}
             style={{
               display: "flex",
               alignItems: "center",
@@ -131,7 +166,7 @@ export default function StudentLabLayout({
               cursor: "pointer",
             }}
           >
-            <LogOut size={20} />
+            <LogOut size={20} aria-hidden="true" />
             <span className="settings-text" style={{fontWeight: examConfig && !examConfig.examComplete ? "bold" : "normal"}}>
               {examConfig && !examConfig.examComplete
                 ? "انسحاب من الامتحان"
@@ -142,7 +177,7 @@ export default function StudentLabLayout({
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className="main-content" aria-label="Experiment Work Area">
         <header
           style={{
             padding: "24px 32px",
@@ -156,8 +191,7 @@ export default function StudentLabLayout({
           }}
         >
           <h2 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
-            {EXPERIMENT_NAV_ITEMS.find((n) => n.id === activeTab)?.label}{" "}
-            Experiment
+            {currentExperimentLabel} Experiment
           </h2>
 
           {examConfig && examConfig.studentName && (
@@ -169,6 +203,7 @@ export default function StudentLabLayout({
                   borderRadius: "8px",
                   border: "1px solid var(--border-color)",
                 }}
+                aria-label={`Student Name: ${examConfig.studentName}, ID: ${examConfig.studentId}`}
               >
                 <span
                   style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}
@@ -180,6 +215,7 @@ export default function StudentLabLayout({
                 </span>
                 <span
                   style={{ margin: "0 10px", color: "var(--border-color)" }}
+                  aria-hidden="true"
                 >
                   |
                 </span>
@@ -195,6 +231,8 @@ export default function StudentLabLayout({
 
               {!examConfig.examComplete && timeLeft !== null && (
                 <div
+                  aria-live="polite"
+                  aria-label={`Time remaining: ${Math.floor(timeLeft / 60000)} minutes and ${Math.floor((timeLeft % 60000) / 1000)} seconds`}
                   style={{
                     padding: "8px 16px",
                     borderRadius: "8px",
@@ -227,6 +265,7 @@ export default function StudentLabLayout({
                     color: "#10b981",
                     border: "1px solid #10b981",
                   }}
+                  role="status"
                 >
                   Exam Finished
                 </div>
@@ -235,7 +274,7 @@ export default function StudentLabLayout({
           )}
         </header>
 
-        <div className="experiment-area">
+        <section className="experiment-area" aria-label="Active Experiment Area">
           {(!activeTab || activeTab.trim().toLowerCase() === "ohm") && (
             <OhmsLaw
               examConfig={examConfig}
@@ -260,7 +299,7 @@ export default function StudentLabLayout({
               onSubmitResult={handleExamSubmit}
             />
           )}
-        </div>
+        </section>
 
         {isExamMode && examConfig && (
           <CameraProctor

@@ -1,20 +1,44 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Play,
-  Square,
   TestTube,
   CheckCircle2,
   XCircle,
-  Ruler,
   Crosshair,
   RefreshCw
 } from "lucide-react";
 import "../../styles/components/Viscosity.css";
+import { ExamConfig } from "../../layouts/StudentLabLayout";
 
+interface ViscosityBall {
+  id: number;
+  dTrue: number;
+  radiusMeters: number;
+  tMeasured: number | null;
+  inputD: string;
+  inputV: string;
+  inputEta: string;
+  dCorrect: boolean | null;
+  vCorrect: boolean | null;
+  etaCorrect: boolean | null;
+}
 
-export default function Viscosity({ examConfig, onSubmitResult }) {
+interface FluidProps {
+  name: string;
+  density: number;
+  viscosity: number;
+  color: string;
+  colorLight: string;
+}
+
+interface ViscosityProps {
+  examConfig: ExamConfig | null;
+  onSubmitResult: (studentValue: string | number, actualValue: string | number) => void;
+}
+
+export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps) {
   // 5-minute submission lock
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     if (!examConfig || !examConfig.startTime) return;
@@ -39,7 +63,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
   const ballDensity = 7800; // Steel
   const distanceMeters = 0.6;
 
-  const [fluidProps] = useState(() => {
+  const fluidProps = useMemo<FluidProps>(() => {
     if (examConfig && examConfig.parameters.viscosityLiquid) {
       const name = examConfig.parameters.viscosityLiquid;
       let density = 1260;
@@ -75,10 +99,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
       color: "#06b6d4",
       colorLight: "rgba(6, 182, 212, 0.4)",
     };
-  });
+  }, [examConfig]);
 
-  const [balls, setBalls] = useState(() => {
-    const arr = [];
+  const [balls, setBalls] = useState<ViscosityBall[]>(() => {
+    const arr: ViscosityBall[] = [];
     if (examConfig && examConfig.parameters && examConfig.parameters.viscosityBalls) {
       examConfig.parameters.viscosityBalls.forEach((d, i) => {
         arr.push({
@@ -122,44 +146,43 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
       .map((b, i) => ({ ...b, id: i + 1 }));
   });
 
-  const [avgEtaInput, setAvgEtaInput] = useState("");
-  const [avgEtaCorrect, setAvgEtaCorrect] = useState(null);
+  const [avgEtaInput, setAvgEtaInput] = useState<string>("");
+  const [avgEtaCorrect, setAvgEtaCorrect] = useState<boolean | null>(null);
 
-  const [activeBallId, setActiveBallId] = useState(1);
-  const activeBall = balls.find((b) => b.id === activeBallId);
+  const [activeBallId, setActiveBallId] = useState<number>(1);
+  const activeBall = useMemo(() => balls.find((b) => b.id === activeBallId) || balls[0], [balls, activeBallId]);
 
   // Manual Micrometer State
-  const [micrometerGap, setMicrometerGap] = useState(25.0);
+  const [micrometerGap, setMicrometerGap] = useState<number>(25.0);
+  
   // --- VISCOSITY LOGIC (STOKES' LAW) ---
-  // Calculates fluid resistance (η) based on falling sphere terminal velocity.
-  const [selectedBall, setSelectedBall] = useState(null);
-  const [isDropping, setIsDropping] = useState(false);
-  const [ballPosition, setBallPosition] = useState(0); // Vertical travel in tube
-  const [liveTime, setLiveTime] = useState(0);
+  const [isDropping, setIsDropping] = useState<boolean>(false);
+  const [liveTime, setLiveTime] = useState<number>(0);
 
-  const requestRef = useRef();
-  const startTimeRef = useRef(0);
-  const timeAtTopMarkRef = useRef(0);
-  const timeAtBottomMarkRef = useRef(0);
-  const micrometerSliderRef = useRef(null);
+  const requestRef = useRef<number>();
+  const startTimeRef = useRef<number>(0);
+  const timeAtTopMarkRef = useRef<number>(0);
+  const timeAtBottomMarkRef = useRef<number>(0);
+  const micrometerSliderRef = useRef<HTMLInputElement>(null);
 
-  const [simState, setSimState] = useState("idle");
-  const [dropPosition, setDropPosition] = useState(0);
+  const [simState, setSimState] = useState<"idle" | "running">("idle");
+  const [dropPosition, setDropPosition] = useState<number>(0);
 
-  const terminalVelocity =
+  const terminalVelocity = useMemo(() => (
     (2 *
       Math.pow(activeBall.radiusMeters, 2) *
       g *
       (ballDensity - fluidProps.density)) /
-    (9 * fluidProps.viscosity);
+    (9 * fluidProps.viscosity)
+  ), [activeBall.radiusMeters, fluidProps.density, fluidProps.viscosity]);
     
   const maxDistanceMeters = 1.0;
   const topMarkMeters = 0.2;
   const bottomMarkMeters = 0.8;
 
-  const [simMessage, setSimMessage] = useState("Select a ball and drop it.");
+  const [simMessage, setSimMessage] = useState<string>("Select a ball and drop it.");
 
-  const animate = (time) => {
+  const animate = useCallback((time: number) => {
     if (!startTimeRef.current) startTimeRef.current = time;
 
     const elapsedS = (time - startTimeRef.current) / 1000;
@@ -197,14 +220,16 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
       setSimState("idle");
       setDropPosition(maxDistanceMeters);
     }
-  };
+  }, [activeBallId, terminalVelocity]);
 
   useEffect(() => {
     if (simState === "running") {
       requestRef.current = requestAnimationFrame(animate);
     }
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [simState, activeBallId]);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [simState, animate]);
 
   const handleDrop = () => {
     setSimState("running");
@@ -216,10 +241,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
     setSimMessage("Ball dropping...");
   };
 
-  const handleMicrometerChange = (e) => {
+  const handleMicrometerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = parseFloat(e.target.value);
     if (val < activeBall.dTrue) {
-      val = activeBall.dTrue; // Prevents closing beyond ball size
+      val = activeBall.dTrue;
     }
     setMicrometerGap(val);
   };
@@ -227,7 +252,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
   useEffect(() => {
     const el = micrometerSliderRef.current;
     if (!el) return;
-    const handler = (e) => {
+    const handler = (e: WheelEvent) => {
       e.preventDefault();
       setMicrometerGap((prev) => {
         const newVal = parseFloat(
@@ -241,7 +266,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
     return () => el.removeEventListener("wheel", handler);
   }, [activeBall.dTrue]);
 
-  const handleInputChange = (id, field, value) => {
+  const handleInputChange = (id: number, field: keyof ViscosityBall, value: string) => {
     setBalls((prev) =>
       prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)),
     );
@@ -249,7 +274,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
 
   const checkAnswers = () => {
     let allCorrect = true;
-    let validEtas = [];
+    let validEtas: number[] = [];
 
     const newBalls = balls.map((b) => {
       const dNum = parseFloat(b.inputD);
@@ -334,7 +359,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 Math.pow(b.dTrue / 2 / 1000, 2) *
                 g *
                 (ballDensity - fluidProps.density)) /
-              (9 * expectedV)
+              (9 * parseFloat(expectedV))
             ).toFixed(3)
           : "-";
         return {
@@ -369,9 +394,9 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
     const exactThimble = (micrometerGap % 0.5) * 100;
 
     return (
-      <div className="glass-panel viscosity-micrometer">
+      <section className="glass-panel viscosity-micrometer" aria-label="Manual Micrometer">
         <h3 className="viscosity-micrometer-title">
-          <Crosshair size={20} /> Manual Micrometer
+          <Crosshair size={20} aria-hidden="true" /> Manual Micrometer
         </h3>
         <p className="viscosity-micrometer-subtitle">
           Adjust the gap until it closes on the ball. Read the{" "}
@@ -380,7 +405,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
         </p>
 
         {/* Visual Representation of Jaws/Object */}
-        <div className="viscosity-micrometer-visual">
+        <div className="viscosity-micrometer-visual" aria-hidden="true">
           <div
             style={{
               position: "absolute",
@@ -428,7 +453,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
           ></div>
         </div>
 
-        <div className="viscosity-micrometer-scales">
+        <div className="viscosity-micrometer-scales" aria-hidden="true">
           {/* Main Scale SVG */}
           <div className="viscosity-micrometer-scale">
             <div className="viscosity-micrometer-scale-title">
@@ -508,7 +533,6 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
               Circular Scale (Thimble) - 0.01 mm steps
             </div>
             <svg width="100%" height="60">
-              {/* Centered at 50% width via translate */}
               <g transform="translate(150, 30)">
                 {/* Fixed Indicator Line (Center) */}
                 <line
@@ -519,7 +543,6 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                   stroke="#ef4444"
                   strokeWidth="3"
                 />
-
                 {/* Sliding Tape with numbers wrapping 0 to 49 */}
                 {Array.from({ length: 25 }).map((_, i) => {
                   const offset = i - 12; // span around center
@@ -573,7 +596,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
 
         {/* Slider Control */}
         <div className="viscosity-micrometer-controls">
-          <span style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }}>
+          <span style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }} aria-hidden="true">
             Close Jaws
           </span>
           <input
@@ -585,22 +608,27 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             value={micrometerGap}
             onChange={handleMicrometerChange}
             className="viscosity-micrometer-range"
+            aria-label="Adjust Micrometer Gap"
+            aria-valuemin={0}
+            aria-valuemax={25}
+            aria-valuenow={micrometerGap}
           />
           <span
             style={{ fontSize: "0.9rem", color: "#f59e0b", fontWeight: "bold" }}
+            aria-hidden="true"
           >
             Open Jaws
           </span>
         </div>
-      </div>
+      </section>
     );
   };
 
   return (
-    <div className="glass-panel viscosity-container animate-fade-in w-full max-w-6xl mx-auto">
-      <div className="viscosity-header">
+    <section className="glass-panel viscosity-container animate-fade-in w-full max-w-6xl mx-auto" aria-labelledby="viscosity-heading">
+      <header className="viscosity-header">
         <div>
-          <h2 className="viscosity-title">
+          <h2 id="viscosity-heading" className="viscosity-title">
             Viscosity Evaluation
           </h2>
           <p className="viscosity-subtitle">
@@ -608,18 +636,20 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             calculate the viscosity coefficient of the mystery fluid.
           </p>
         </div>
-      </div>
+      </header>
 
       <div className="viscosity-grid">
         {/* Simulation Area */}
-        <div className="glass-panel viscosity-sim-area">
+        <section className="glass-panel viscosity-sim-area" aria-label="Viscosity Tube Simulation">
           <div className="viscosity-hud">
             <div className="viscosity-stopwatch">
-              <div className="viscosity-stopwatch-label">
+              <div className="viscosity-stopwatch-label" aria-hidden="true">
                 Stopwatch
               </div>
               <div
                 className="device-display"
+                aria-live="polite"
+                aria-atomic="true"
                 style={{
                   background: "#3b82f6",
                   color: "white",
@@ -631,12 +661,12 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 {liveTime.toFixed(2)} s
               </div>
             </div>
-            <div className="viscosity-sim-message">
+            <div className="viscosity-sim-message" aria-live="polite">
               {simMessage}
             </div>
           </div>
 
-          <div className="viscosity-physics-wrapper">
+          <div className="viscosity-physics-wrapper" aria-hidden="true">
             <div className="viscosity-ruler">
               {[0, 20, 40, 60, 80, 100].map((cm, i) => (
                 <div
@@ -748,10 +778,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
               ></div>
             </div>
           </div>
-        </div>
+        </section>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          <div className="glass-panel" style={{ padding: "20px" }}>
+          <section className="glass-panel" style={{ padding: "20px" }} aria-label="Experiment Equipment">
             <h3
               style={{
                 fontSize: "1.2rem",
@@ -761,7 +791,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 gap: "8px",
               }}
             >
-              <TestTube size={20} color="var(--primary)" /> Equipment
+              <TestTube size={20} color="var(--primary)" aria-hidden="true" /> Equipment
             </h3>
 
             <div style={{ marginBottom: "16px" }}>
@@ -774,7 +804,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
               >
                 Select Ball:
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }} role="group" aria-label="Ball Selection">
                 {balls.map((b) => (
                   <button
                     key={b.id}
@@ -787,6 +817,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                         setSimMessage("Ready to drop.");
                       }
                     }}
+                    aria-pressed={activeBallId === b.id}
                     style={{
                       padding: "8px 12px",
                       borderRadius: "8px",
@@ -809,6 +840,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             <button
               onClick={handleDrop}
               disabled={simState === "running"}
+              aria-label="Drop Selected Ball into Tube"
               style={{
                 width: "100%",
                 padding: "12px",
@@ -823,14 +855,15 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 cursor: simState === "running" ? "not-allowed" : "pointer",
               }}
             >
-              <Play size={18} /> Drop Selected Ball
+              <Play size={18} aria-hidden="true" /> Drop Selected Ball
             </button>
-          </div>
+          </section>
 
           {renderMicrometer()}
 
-          <div
+          <section
             className="glass-panel"
+            aria-label="Known Constants"
             style={{
               padding: "20px",
               background: "rgba(59, 130, 246, 0.05)",
@@ -875,12 +908,12 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 {fluidProps.density} kg/m³
               </span>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 
       {/* Evaluation Table */}
-      <div className="glass-panel" style={{ padding: "24px", overflowX: "auto" }}>
+      <section className="glass-panel" style={{ padding: "24px", overflowX: "auto" }} aria-label="Data Collection Table">
         <h3 className="viscosity-title" style={{ fontSize: "1.5rem", marginBottom: "16px" }}>
           Data Collection & Calculation
         </h3>
@@ -899,13 +932,13 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 textAlign: "left",
               }}
             >
-              <th style={{ padding: "12px" }}>Ball</th>
-              <th style={{ padding: "12px", color: "var(--text-muted)" }}>
+              <th scope="col" style={{ padding: "12px" }}>Ball</th>
+              <th scope="col" style={{ padding: "12px", color: "var(--text-muted)" }}>
                 Measured Time (s)
               </th>
-              <th style={{ padding: "12px" }}>Diameter (mm)</th>
-              <th style={{ padding: "12px" }}>Velocity (m/s)</th>
-              <th style={{ padding: "12px" }}>Viscosity η (Pa·s)</th>
+              <th scope="col" style={{ padding: "12px" }}>Diameter (mm)</th>
+              <th scope="col" style={{ padding: "12px" }}>Velocity (m/s)</th>
+              <th scope="col" style={{ padding: "12px" }}>Viscosity η (Pa·s)</th>
             </tr>
           </thead>
           <tbody>
@@ -922,6 +955,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                     fontFamily: "monospace",
                     fontSize: "1.1rem",
                   }}
+                  aria-live="polite"
                 >
                   {b.tMeasured ? b.tMeasured.toFixed(2) : "--"}
                 </td>
@@ -939,6 +973,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       onChange={(e) =>
                         handleInputChange(b.id, "inputD", e.target.value)
                       }
+                      aria-label={`Diameter for Ball ${b.id}`}
                       style={{
                         width: "80px",
                         padding: "6px",
@@ -949,10 +984,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       }}
                     />
                     {!examConfig && b.dCorrect === true && (
-                      <CheckCircle2 size={18} color="#10b981" />
+                      <CheckCircle2 size={18} color="#10b981" aria-hidden="true" />
                     )}
                     {!examConfig && b.dCorrect === false && (
-                      <XCircle size={18} color="#ef4444" />
+                      <XCircle size={18} color="#ef4444" aria-hidden="true" />
                     )}
                   </div>
                 </td>
@@ -970,6 +1005,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       onChange={(e) =>
                         handleInputChange(b.id, "inputV", e.target.value)
                       }
+                      aria-label={`Velocity for Ball ${b.id}`}
                       style={{
                         width: "80px",
                         padding: "6px",
@@ -981,10 +1017,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       placeholder="e.g. 0.05"
                     />
                     {!examConfig && b.vCorrect === true && (
-                      <CheckCircle2 size={18} color="#10b981" />
+                      <CheckCircle2 size={18} color="#10b981" aria-hidden="true" />
                     )}
                     {!examConfig && b.vCorrect === false && (
-                      <XCircle size={18} color="#ef4444" />
+                      <XCircle size={18} color="#ef4444" aria-hidden="true" />
                     )}
                   </div>
                 </td>
@@ -1002,6 +1038,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       onChange={(e) =>
                         handleInputChange(b.id, "inputEta", e.target.value)
                       }
+                      aria-label={`Viscosity for Ball ${b.id}`}
                       style={{
                         width: "80px",
                         padding: "6px",
@@ -1012,10 +1049,10 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                       }}
                     />
                     {!examConfig && b.etaCorrect === true && (
-                      <CheckCircle2 size={18} color="#10b981" />
+                      <CheckCircle2 size={18} color="#10b981" aria-hidden="true" />
                     )}
                     {!examConfig && b.etaCorrect === false && (
-                      <XCircle size={18} color="#ef4444" />
+                      <XCircle size={18} color="#ef4444" aria-hidden="true" />
                     )}
                   </div>
                 </td>
@@ -1045,6 +1082,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                 type="text"
                 value={avgEtaInput}
                 onChange={(e) => setAvgEtaInput(e.target.value)}
+                aria-label="Calculated Average Viscosity"
                 style={{
                   width: "100px",
                   padding: "8px",
@@ -1055,12 +1093,13 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                   fontSize: "1.1rem",
                 }}
               />
-              <span style={{ color: "var(--text-muted)" }}>Pa·s</span>
+              <span style={{ color: "var(--text-muted)" }} aria-hidden="true">Pa·s</span>
               {!examConfig && avgEtaCorrect === true && (
                 <CheckCircle2
                   size={24}
                   color="#10b981"
                   style={{ marginLeft: "8px" }}
+                  aria-hidden="true"
                 />
               )}
               {!examConfig && avgEtaCorrect === false && (
@@ -1068,6 +1107,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
                   size={24}
                   color="#ef4444"
                   style={{ marginLeft: "8px" }}
+                  aria-hidden="true"
                 />
               )}
             </div>
@@ -1077,6 +1117,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             <button
               onClick={checkAnswers}
               disabled={!canSubmit || examConfig?.examComplete}
+              aria-disabled={!canSubmit || examConfig?.examComplete}
               style={{
                 padding: "12px 24px",
                 background: "var(--primary)",
@@ -1093,7 +1134,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             >
               {!canSubmit ? (
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                  <RefreshCw size={18} className="animate-spin" />
+                  <RefreshCw size={18} className="animate-spin" aria-hidden="true" />
                   انتظر {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")}
                 </span>
               ) : (
@@ -1101,8 +1142,8 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
               )}
             </button>
             {!canSubmit && (
-              <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
-                يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+              <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }} role="alert">
+                يجب استيفاء وقت المراقبة الأدنى (دقيقة) قبل إرسال النتيجة.
               </p>
             )}
           </div>
@@ -1115,6 +1156,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
               fontSize: "0.9rem",
               color: "var(--text-muted)",
             }}
+            aria-hidden="true"
           >
             <p>
               <strong>Hint:</strong> Use the formula η = [ 2 * (ρ<sub>s</sub> -
@@ -1127,7 +1169,7 @@ export default function Viscosity({ examConfig, onSubmitResult }) {
             </p>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </section>
   );
 }

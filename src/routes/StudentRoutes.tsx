@@ -20,10 +20,10 @@ export default function StudentRoutes() {
       const decodedBase64 = atob(saved);
       try {
         return JSON.parse(decodeURIComponent(decodedBase64));
-      } catch (err) {
+      } catch {
         return JSON.parse(decodedBase64);
       }
-    } catch (e) {
+    } catch {
       return null;
     }
   });
@@ -124,54 +124,6 @@ export default function StudentRoutes() {
     verifyNotSubmitted();
   }, [examConfig?.code, examConfig?.studentId, navigate]);
 
-  // ─── Exam Timer & Heartbeat Ping ───
-  useEffect(() => {
-    let timer;
-    let pingTimer;
-    if (examConfig && examConfig.startTime && !examConfig.examComplete) {
-      timer = setInterval(() => {
-        // TIME PROTECTION: Auto-submit if time runs out
-        const elapsed = Date.now() - examConfig.startTime;
-        const remaining = Math.max(0, 30 * 60 * 1000 - elapsed);
-        
-        // Detect if the session resumed after it was ALREADY over (anti-stale logic)
-        const isStale = (elapsed - (30 * 60 * 1000)) > 5000;
-
-        setTimeLeft(remaining);
-
-        if (remaining <= 5 * 60 * 1000 && remaining > 0) {
-          setShowWarning(true);
-        } else {
-          setShowWarning(false);
-        }
-
-        if (remaining === 0) {
-          handleExamSubmit("--", "N/A", isStale);
-          clearInterval(timer);
-        }
-      }, 1000);
-
-      // HEARTBEAT PING: Updates a specific column every 15s. 
-      // If this stops, the Instructor knows the student disconnected or killed the process.
-      pingTimer = setInterval(() => {
-        supabase
-          .from("results")
-          .update({ unit: Date.now().toString() })
-          .eq("student_id", examConfig.studentId.toString())
-          .eq("exam_code", examConfig.code)
-          .then(() => {});
-      }, 15000);
-
-    } else {
-      setTimeLeft(null);
-      setShowWarning(false);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-      if (pingTimer) clearInterval(pingTimer);
-    };
-  }, [examConfig]);
-
   // ─── Submit Handler ───
   const handleExamSubmit = async (studentValue, actualValue, isSilent = false) => {
     if (!examConfig || examConfig.examComplete || isSubmitting) return;
@@ -244,6 +196,54 @@ export default function StudentRoutes() {
       navigate("/");
     }, isSilent ? 0 : 3000);
   };
+
+  // ─── Exam Timer & Heartbeat Ping ───
+  useEffect(() => {
+    let timer;
+    let pingTimer;
+    if (examConfig && examConfig.startTime && !examConfig.examComplete) {
+      timer = setInterval(() => {
+        // TIME PROTECTION: Auto-submit if time runs out
+        const elapsed = Date.now() - examConfig.startTime;
+        const remaining = Math.max(0, 30 * 60 * 1000 - elapsed);
+        
+        // Detect if the session resumed after it was ALREADY over (anti-stale logic)
+        const isStale = (elapsed - (30 * 60 * 1000)) > 5000;
+
+        setTimeLeft(remaining);
+
+        if (remaining <= 5 * 60 * 1000 && remaining > 0) {
+          setShowWarning(true);
+        } else {
+          setShowWarning(false);
+        }
+
+        if (remaining === 0) {
+          handleExamSubmit("--", "N/A", isStale);
+          clearInterval(timer);
+        }
+      }, 1000);
+
+      // HEARTBEAT PING: Updates a specific column every 15s. 
+      // If this stops, the Instructor knows the student disconnected or killed the process.
+      pingTimer = setInterval(() => {
+        supabase
+          .from("results")
+          .update({ unit: Date.now().toString() })
+          .eq("student_id", examConfig.studentId.toString())
+          .eq("exam_code", examConfig.code)
+          .then(() => {});
+      }, 15000);
+
+    } else {
+      setTimeLeft(null);
+      setShowWarning(false);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+      if (pingTimer) clearInterval(pingTimer);
+    };
+  }, [examConfig]);
 
   return (
     <Routes>

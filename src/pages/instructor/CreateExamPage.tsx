@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   FileText,
@@ -67,7 +67,7 @@ function CreateExamPage({ instructorId, onBack }) {
 
       // إذا نجح الإرسال لقاعدة البيانات، نظهر الكود للمدرس
       setGeneratedCode(code);
-      console.log("Exam saved to Supabase with code:", code);
+
     } catch (error) {
       console.error("Error saving exam to Supabase:", error.message);
       alert(

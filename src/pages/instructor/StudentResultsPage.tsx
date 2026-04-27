@@ -6,7 +6,7 @@ import "../../styles/components/StudentResultsPage.css";
 
 function StudentResultsPage({ instructorId, onBack }) {
   const [results, setResults] = useState([]);
-  const [savedMessage, setSavedMessage] = useState(false);
+
   const [loading, setLoading] = useState(true);
 
   // Proctoring Modal State
@@ -123,7 +123,7 @@ function StudentResultsPage({ instructorId, onBack }) {
           studentResultDisplay = `${studentResultDisplay} ${req.unit || ""}`;
         }
       }
-    } catch(e) {}
+    } catch {}
 
     const htmlContent = `
       <html dir="rtl" lang="ar">
@@ -308,7 +308,7 @@ function StudentResultsPage({ instructorId, onBack }) {
             isDisconnected = true;
           }
         }
-      } catch (err) {}
+      } catch {}
       
       if (isDisconnected) {
         return <span style={{ color: "#f59e0b", fontWeight: "bold" }}>منسحب (فقد الاتصال) ⚠️</span>;

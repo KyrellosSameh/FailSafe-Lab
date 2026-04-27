@@ -49,7 +49,7 @@ function SessionCodePage({ onBack, onJoin }) {
           window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         ]);
         setModelsLoaded(true);
-        console.log("AI Face Models Loaded Successfully");
+
       } catch (err) {
         console.error("Failed to load AI face models:", err);
       }
@@ -282,7 +282,7 @@ function SessionCodePage({ onBack, onJoin }) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         const track = videoTracks[0];
-        const settings = track.getSettings();
+
 
         // Part A: Basic Technical Check
         if (
@@ -328,7 +328,7 @@ function SessionCodePage({ onBack, onJoin }) {
           squareSum / count - averageBrightness * averageBrightness;
         const stdDev = Math.sqrt(Math.max(0, variance));
 
-        console.log("Camera Check Metrics:", { averageBrightness, stdDev });
+
 
         // Rejection Criteria Optimized for User's Gray Placeholder:
         // 1. averageBrightness < 5: Too dark.
@@ -392,7 +392,7 @@ function SessionCodePage({ onBack, onJoin }) {
           throw new Error("No face detected by AI");
         }
 
-        console.log("AI Face Detection Success - Score:", detection.score);
+
       } catch (e) {
         console.error("AI Face Detection Failure:", e);
         setError(

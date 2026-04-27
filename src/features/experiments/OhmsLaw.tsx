@@ -1,47 +1,56 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Zap,
   Activity,
-  Battery,
   TriangleRight,
   CheckCircle2,
   XCircle,
   RefreshCw,
 } from "lucide-react";
 import "../../styles/components/OhmsLaw.css";
+import { ExamConfig } from "../../layouts/StudentLabLayout";
 
 // Standard E12 series resistor values suitable for lab experiments (Ohms)
 const STANDARD_RESISTORS = [
   10, 22, 33, 47, 56, 68, 100, 150, 220, 330, 470, 560, 680, 1000,
 ];
 
-export default function OhmsLaw({ examConfig, onSubmitResult }) {
+interface ExamStepResult {
+  v: string;
+  i: string;
+}
+
+interface OhmsLawProps {
+  examConfig: ExamConfig | null;
+  onSubmitResult: (studentValue: string | number, actualValue: string | number) => void;
+}
+
+export default function OhmsLaw({ examConfig, onSubmitResult }: OhmsLawProps) {
   // --- OHM'S LAW CORE LOGIC ---
   // Formula: I = V / R + Noise
-  const [voltage, setVoltage] = useState(12); // User-adjustable voltage (0-24V)
-  const [resistance, setResistance] = useState(100); // True Resistance generated per session
-  const [current, setCurrent] = useState(0); // Calculated live current (I)
-  const voltageSliderRef = useRef(null);
+  const [voltage, setVoltage] = useState<number>(12); // User-adjustable voltage (0-24V)
+  const [resistance, setResistance] = useState<number>(100); // True Resistance generated per session
+  const voltageSliderRef = useRef<HTMLInputElement>(null);
 
   // Evaluation states
-  const [studentAnswer, setStudentAnswer] = useState("");
-  const [isEvaluated, setIsEvaluated] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
+  const [studentAnswer, setStudentAnswer] = useState<string>("");
+  const [isEvaluated, setIsEvaluated] = useState<boolean>(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
   // Exam-specific states
-  const [examStepResults, setExamStepResults] = useState([]);
-  const [studentV, setStudentV] = useState("");
-  const [studentI, setStudentI] = useState("");
+  const [examStepResults, setExamStepResults] = useState<ExamStepResult[]>([]);
+  const [studentV, setStudentV] = useState<string>("");
+  const [studentI, setStudentI] = useState<string>("");
   
-  const [graphPhase, setGraphPhase] = useState(false);
-  const [graphV1, setGraphV1] = useState("");
-  const [graphI1, setGraphI1] = useState("");
-  const [graphV2, setGraphV2] = useState("");
-  const [graphI2, setGraphI2] = useState("");
-  const [studentSlope, setStudentSlope] = useState("");
+  const [graphPhase, setGraphPhase] = useState<boolean>(false);
+  const [graphV1, setGraphV1] = useState<string>("");
+  const [graphI1, setGraphI1] = useState<string>("");
+  const [graphV2, setGraphV2] = useState<string>("");
+  const [graphI2, setGraphI2] = useState<string>("");
+  const [studentSlope, setStudentSlope] = useState<string>("");
 
   // 5-minute submission lock
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     if (!examConfig || !examConfig.startTime) return;
@@ -63,8 +72,8 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
   const canSubmit = !examConfig || timeLeft === 0;
 
   // Static device inaccuracies (+/- 2% for AM, +/- 1% for VM) per run
-  const [voltageNoise, setVoltageNoise] = useState(1);
-  const [currentNoise, setCurrentNoise] = useState(1);
+  const [voltageNoise, setVoltageNoise] = useState<number>(1);
+  const [currentNoise, setCurrentNoise] = useState<number>(1);
 
   // Function to generate a new random problem or load exam
   const generateNewResistor = useCallback(() => {
@@ -95,12 +104,12 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
     // Generate new noises
     setVoltageNoise(1 + (Math.random() * 0.02 - 0.01));
     setCurrentNoise(1 + (Math.random() * 0.04 - 0.02));
-  }, []);
+  }, [examConfig]);
 
   // Initialize on mount
   useEffect(() => {
     generateNewResistor();
-  }, [generateNewResistor, examConfig?.code]); // Add code to dep so it doesn't re-run on examComplete change
+  }, [generateNewResistor, examConfig?.code]);
 
   useEffect(() => {
     if (examConfig?.examComplete) {
@@ -111,7 +120,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
   useEffect(() => {
     const el = voltageSliderRef.current;
     if (!el) return;
-    const handler = (e) => {
+    const handler = (e: WheelEvent) => {
       e.preventDefault();
       setVoltage((v) =>
         Math.min(24, Math.max(0, v + (e.deltaY < 0 ? 0.5 : -0.5))),
@@ -121,19 +130,19 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
     return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  const theoreticalCurrent = voltage / resistance;
+  // Performance Optimization: Memoize heavy derivation logic
+  const theoreticalCurrent = useMemo(() => voltage / resistance, [voltage, resistance]);
+  
+  const measuredVoltage = useMemo(() => voltage * voltageNoise, [voltage, voltageNoise]);
+  const measuredCurrent = useMemo(() => theoreticalCurrent * currentNoise, [theoreticalCurrent, currentNoise]);
 
-  // The panel sliders represent the true intended value, but the meters read noisy values
-  const measuredVoltage = voltage * voltageNoise;
-  const measuredCurrent = theoreticalCurrent * currentNoise;
-
-  // We avoid division by zero when V is strictly 0 to handle initial practical noise calculations gracefully
-  const practicalResistance =
+  const practicalResistance = useMemo(() => (
     measuredVoltage > 0.1 && measuredCurrent > 0
       ? measuredVoltage / measuredCurrent
-      : resistance;
+      : resistance
+  ), [measuredVoltage, measuredCurrent, resistance]);
 
-  const handleEvaluate = (e) => {
+  const handleEvaluate = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAnswer = parseFloat(studentAnswer);
     if (isNaN(parsedAnswer)) return;
@@ -142,7 +151,6 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
     const lowerBound = practicalResistance * 0.95;
     const upperBound = practicalResistance * 1.05;
 
-    // If student correctly calculates from meters OR accidentally guesses true value
     const isAnswerCorrect =
       (parsedAnswer >= lowerBound && parsedAnswer <= upperBound) ||
       (parsedAnswer >= resistance * 0.95 && parsedAnswer <= resistance * 1.05);
@@ -155,17 +163,17 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
     }
   };
 
-  // Format current for display (mA if < 1A)
-  const displayCurrent =
+  const displayCurrent = useMemo(() => (
     measuredCurrent < 1
       ? `${(measuredCurrent * 1000).toFixed(1)} mA`
-      : `${measuredCurrent.toFixed(2)} A`;
+      : `${measuredCurrent.toFixed(2)} A`
+  ), [measuredCurrent]);
 
   return (
-    <div className="glass-panel ohms-law-container animate-fade-in">
-      <div className="ohms-law-header">
+    <section className="glass-panel ohms-law-container animate-fade-in" aria-labelledby="ohms-law-heading">
+      <header className="ohms-law-header">
         <div>
-          <h2 className="ohms-law-title">
+          <h2 id="ohms-law-heading" className="ohms-law-title">
             Ohm's Law Simulator
           </h2>
           <p style={{ color: "var(--text-muted)" }}>
@@ -174,32 +182,30 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           </p>
         </div>
         {!examConfig && (
-          <div className="ohms-law-formula">
-            <span>
-              R = V / I
-            </span>
+          <div className="ohms-law-formula" aria-hidden="true">
+            <span>R = V / I</span>
           </div>
         )}
-      </div>
+      </header>
 
       <div className="ohms-law-grid">
         {/* Instruments Panel */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* Voltmeter */}
-          <div className="glass-panel ohms-law-panel">
-            <div className="ohms-law-panel-header">
-              <div className="ohms-law-icon-blue">
+          <section className="glass-panel ohms-law-panel" aria-label="Voltmeter Instrument">
+            <header className="ohms-law-panel-header">
+              <div className="ohms-law-icon-blue" aria-hidden="true">
                 <Activity size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Voltmeter (V)</h3>
-            </div>
+            </header>
 
-            <div className="device-display ohms-law-meters">
+            <div className="device-display ohms-law-meters" aria-live="polite" aria-atomic="true">
               {measuredVoltage.toFixed(2)} V
             </div>
 
             <div className="ohms-law-slider-wrapper">
-              <div className="ohms-law-slider-labels">
+              <div className="ohms-law-slider-labels" aria-hidden="true">
                 <span>Power Supply</span>
                 <span>{voltage} V</span>
               </div>
@@ -211,33 +217,37 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                 step="0.5"
                 value={voltage}
                 onChange={(e) => setVoltage(parseFloat(e.target.value))}
+                aria-label="Adjust Voltage Power Supply"
+                aria-valuemin={0}
+                aria-valuemax={24}
+                aria-valuenow={voltage}
                 style={{
                   width: "100%",
                   cursor: "pointer",
                   accentColor: "var(--primary)",
                 }}
               />
-              <div className="ohms-law-slider-minmax">
+              <div className="ohms-law-slider-minmax" aria-hidden="true">
                 <span>0V</span>
                 <span>24V</span>
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Ammeter */}
-          <div className="glass-panel ohms-law-panel">
-            <div className="ohms-law-panel-header">
-              <div className="ohms-law-icon-green">
+          <section className="glass-panel ohms-law-panel" aria-label="Ammeter Instrument">
+            <header className="ohms-law-panel-header">
+              <div className="ohms-law-icon-green" aria-hidden="true">
                 <Zap size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Ammeter (I)</h3>
-            </div>
+            </header>
 
-            <div className="device-display green ohms-law-meters">
+            <div className="device-display green ohms-law-meters" aria-live="polite" aria-atomic="true">
               {displayCurrent}
             </div>
 
-            <div className="ohms-law-slider-wrapper">
+            <div className="ohms-law-slider-wrapper" aria-hidden="true">
               <p
                 style={{
                   color: "var(--text-muted)",
@@ -256,19 +266,19 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                 ></div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
 
         {/* Circuit & Evaluation Panel */}
-        <div className="glass-panel ohms-law-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <div className="ohms-law-panel-header" style={{ marginBottom: "24px" }}>
-            <div className="ohms-law-icon-orange">
+        <section className="glass-panel ohms-law-panel" style={{ display: "flex", flexDirection: "column" }} aria-label="Circuit and Evaluation Area">
+          <header className="ohms-law-panel-header" style={{ marginBottom: "24px" }}>
+            <div className="ohms-law-icon-orange" aria-hidden="true">
               <TriangleRight size={20} />
             </div>
             <h3 style={{ margin: 0 }}>Unknown Resistor (R)</h3>
-          </div>
+          </header>
 
-          <div className="ohms-law-resistor-visual">
+          <div className="ohms-law-resistor-visual" aria-hidden="true">
             {/* CSS Resistor visualization */}
             <div className="ohms-law-resistor-graphic">
               <div className="ohms-law-wire"></div>
@@ -308,7 +318,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
           </div>
 
           {examConfig && (
-            <div className="ohms-law-exam-results">
+            <div className="ohms-law-exam-results" aria-live="polite">
                {examStepResults.length > 0 && <h4 style={{ margin: "0 0 8px 0", color: "var(--primary)" }}>النقاط المسجلة ({examStepResults.length}/4)</h4>}
                {examStepResults.map((res, idx) => (
                   <div key={idx} className="ohms-law-exam-result-item">
@@ -325,6 +335,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                               if (newResults.length < 4) setGraphPhase(false);
                            }}
                            className="ohms-law-exam-result-delete"
+                           aria-label={`Delete reading ${idx + 1}`}
                         >
                            ✕
                         </button>
@@ -385,6 +396,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                         onChange={(e) => setStudentV(e.target.value)}
                         disabled={isEvaluated || examStepResults.length >= 4}
                         className="exam-input"
+                        aria-label="Recorded Voltage"
                       />
                       <input
                         type="text"
@@ -393,6 +405,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                         onChange={(e) => setStudentI(e.target.value)}
                         disabled={isEvaluated || examStepResults.length >= 4}
                         className="exam-input"
+                        aria-label="Recorded Current"
                       />
                     </div>
                   )}
@@ -406,6 +419,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                         value={studentAnswer}
                         onChange={(e) => setStudentAnswer(e.target.value)}
                         disabled={isEvaluated}
+                        aria-label="Your Calculated Resistance"
                         style={{
                           width: "100%",
                           padding: "12px 16px",
@@ -424,7 +438,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                             : "var(--glass-border)",
                         }}
                       />
-                      <span style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>Ω</span>
+                      <span aria-hidden="true" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>Ω</span>
                     </div>
                   )}
                 </>
@@ -441,6 +455,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       onChange={(e)=>setGraphV1(e.target.value)}
                       disabled={isEvaluated}
                       className="exam-input"
+                      aria-label="Graph Point 1 Voltage"
                     />
                     <input
                       type="text"
@@ -449,6 +464,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       onChange={(e)=>setGraphI1(e.target.value)}
                       disabled={isEvaluated}
                       className="exam-input"
+                      aria-label="Graph Point 1 Current"
                     />
                   </div>
                   <div className="exam-input-group">
@@ -459,6 +475,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       onChange={(e)=>setGraphV2(e.target.value)}
                       disabled={isEvaluated}
                       className="exam-input"
+                      aria-label="Graph Point 2 Voltage"
                     />
                     <input
                       type="text"
@@ -467,6 +484,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       onChange={(e) => setGraphI2(e.target.value)}
                       disabled={isEvaluated}
                       className="exam-input"
+                      aria-label="Graph Point 2 Current"
                     />
                   </div>
                   <div style={{ position: "relative", width: "100%" }}>
@@ -478,6 +496,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                       value={studentSlope}
                       onChange={(e) => setStudentSlope(e.target.value)}
                       disabled={isEvaluated}
+                      aria-label="Calculated Graph Slope Resistance"
                       style={{
                         width: "100%",
                         padding: "12px 16px",
@@ -491,7 +510,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                         borderColor: isEvaluated ? "#10b981" : "#3b82f6"
                       }}
                     />
-                    <span style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>Ω</span>
+                    <span aria-hidden="true" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>Ω</span>
                   </div>
                 </div>
               )}
@@ -510,6 +529,7 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                           : !studentAnswer.trim())
                     }
                     className="ohms-law-submit-btn"
+                    aria-disabled={!canSubmit}
                     style={{
                       background: "var(--primary)",
                       cursor:
@@ -542,8 +562,8 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                     )}
                   </button>
                   {!canSubmit && (
-                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
-                      يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }} role="alert">
+                      يجب استيفاء وقت المراقبة الأدنى (دقيقة) قبل إرسال النتيجة.
                     </p>
                   )}
                 </div>
@@ -553,8 +573,9 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                     type="button"
                     onClick={generateNewResistor}
                     className="ohms-law-retry-btn"
+                    aria-label="Retry Experiment"
                   >
-                    <RefreshCw size={18} /> Retry
+                    <RefreshCw size={18} aria-hidden="true" /> Retry
                   </button>
                 )
               )}
@@ -564,6 +585,8 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
             {/* Result Feedback */}
             {isEvaluated && (
               <div
+                role="alert"
+                aria-live="assertive"
                 style={{
                   marginTop: "16px",
                   padding: "12px",
@@ -580,11 +603,11 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
                 }}
               >
                 {examConfig ? (
-                  <CheckCircle2 size={24} color="#3b82f6" />
+                  <CheckCircle2 size={24} color="#3b82f6" aria-hidden="true" />
                 ) : isCorrect ? (
-                  <CheckCircle2 size={24} color="#10b981" />
+                  <CheckCircle2 size={24} color="#10b981" aria-hidden="true" />
                 ) : (
-                  <XCircle size={24} color="#ef4444" />
+                  <XCircle size={24} color="#ef4444" aria-hidden="true" />
                 )}
                 <div>
                   <div
@@ -619,8 +642,8 @@ export default function OhmsLaw({ examConfig, onSubmitResult }) {
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </section>
   );
 }

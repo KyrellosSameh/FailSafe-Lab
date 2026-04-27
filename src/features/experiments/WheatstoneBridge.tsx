@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   RefreshCw,
   Activity,
@@ -7,38 +7,44 @@ import {
   TriangleRight,
 } from "lucide-react";
 import "../../styles/components/WheatstoneBridge.css";
+import { ExamConfig } from "../../layouts/StudentLabLayout";
 
 const STANDARD_RESISTORS = [
   10, 22, 33, 47, 56, 68, 100, 150, 220, 330, 470, 560, 680, 1000,
 ];
 
-export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
+interface WheatstoneBridgeProps {
+  examConfig: ExamConfig | null;
+  onSubmitResult: (studentValue: string | number, actualValue: string | number) => void;
+}
+
+export default function WheatstoneBridge({ examConfig, onSubmitResult }: WheatstoneBridgeProps) {
   // --- WHEATSTONE BRIDGE LOGIC ---
   // Formula: Rx = R * (L / (100 - L))
   // The goal is to reach the "null point" (zero galvanometer deflection).
-  const [knownR, setKnownR] = useState(100);
-  const [rx, setRx] = useState(150); // Unknown resistor
-  const [jockeyL, setJockeyL] = useState(50); // Position in cm (0 to 100)
-  const [voltage] = useState(12);
-  const jockeySliderRef = useRef(null);
+  const [knownR, setKnownR] = useState<number>(100);
+  const [rx, setRx] = useState<number>(150); // Unknown resistor
+  const [jockeyL, setJockeyL] = useState<number>(50); // Position in cm (0 to 100)
+  const [voltage] = useState<number>(12);
+  const jockeySliderRef = useRef<HTMLInputElement>(null);
 
   // Evaluation states
-  const [studentAnswer, setStudentAnswer] = useState("");
-  const [isEvaluated, setIsEvaluated] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
+  const [studentAnswer, setStudentAnswer] = useState<string>("");
+  const [isEvaluated, setIsEvaluated] = useState<boolean>(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   
   // Exam-specific states
-  const [examFixedResistors, setExamFixedResistors] = useState([]);
-  const [examStepResults, setExamStepResults] = useState({});
-  const [studentAverage, setStudentAverage] = useState("");
-  const [showAveragePhase, setShowAveragePhase] = useState(false);
+  const [examFixedResistors, setExamFixedResistors] = useState<number[]>([]);
+  const [examStepResults, setExamStepResults] = useState<Record<number, number>>({});
+  const [studentAverage, setStudentAverage] = useState<string>("");
+  const [showAveragePhase, setShowAveragePhase] = useState<boolean>(false);
 
-  const [tKnown, setTKnown] = useState(1);
-  const [wireTotalR, setWireTotalR] = useState(10);
-  const [tNoise, setTNoise] = useState(1);
+  const [tKnown, setTKnown] = useState<number>(1);
+  const [wireTotalR, setWireTotalR] = useState<number>(10);
+  const [tNoise, setTNoise] = useState<number>(1);
 
   // 5-minute submission lock
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
     if (!examConfig || !examConfig.startTime) return;
@@ -101,7 +107,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
   useEffect(() => {
     const el = jockeySliderRef.current;
     if (!el) return;
-    const handler = (e) => {
+    const handler = (e: WheelEvent) => {
       e.preventDefault();
       setJockeyL((v) =>
         Math.min(
@@ -114,24 +120,24 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
     return () => el.removeEventListener("wheel", handler);
   }, []);
 
-  const actualKnownR = knownR * tKnown;
-  // For vUpper, Left=V, Right=0. Left is Rx, Right is KnownR.
-  const vUpper = (voltage * actualKnownR) / (rx + actualKnownR);
+  // Performance Optimization: Memoize heavy derivation logic
+  const actualKnownR = useMemo(() => knownR * tKnown, [knownR, tKnown]);
+  const vUpper = useMemo(() => (voltage * actualKnownR) / (rx + actualKnownR), [voltage, actualKnownR, rx]);
 
-  const actualWireL1 = wireTotalR * (jockeyL / 100);
-  const actualWireL2 = wireTotalR * ((100 - jockeyL) / 100);
-  const vLower = (voltage * actualWireL2) / (actualWireL1 + actualWireL2);
+  const actualWireL1 = useMemo(() => wireTotalR * (jockeyL / 100), [wireTotalR, jockeyL]);
+  const actualWireL2 = useMemo(() => wireTotalR * ((100 - jockeyL) / 100), [wireTotalR, jockeyL]);
+  const vLower = useMemo(() => (voltage * actualWireL2) / (actualWireL1 + actualWireL2), [voltage, actualWireL2, actualWireL1]);
 
-  const galvanometerV = vUpper - vLower;
+  const galvanometerV = useMemo(() => vUpper - vLower, [vUpper, vLower]);
 
   // Noise to jitter the reading slightly
-  const displayV = galvanometerV + (Math.random() * 0.002 - 0.001) * tNoise;
-  const isBalanced = Math.abs(displayV) < 0.05;
+  const displayV = useMemo(() => galvanometerV + (Math.random() * 0.002 - 0.001) * tNoise, [galvanometerV, tNoise]);
+  const isBalanced = useMemo(() => Math.abs(displayV) < 0.05, [displayV]);
 
   // Calculation limit: +/- 12V rotation scaled to +/- 45deg
-  const needleRotation = Math.max(-45, Math.min(45, (galvanometerV / 2) * 45));
+  const needleRotation = useMemo(() => Math.max(-45, Math.min(45, (galvanometerV / 2) * 45)), [galvanometerV]);
 
-  const handleEvaluate = (e) => {
+  const handleEvaluate = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAnswer = parseFloat(studentAnswer);
     if (isNaN(parsedAnswer)) return;
@@ -158,10 +164,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
   };
 
   return (
-    <div className="glass-panel wheatstone-container animate-fade-in">
-      <div className="wheatstone-header">
+    <section className="glass-panel wheatstone-container animate-fade-in" aria-labelledby="wheatstone-heading">
+      <header className="wheatstone-header">
         <div>
-          <h2 className="wheatstone-title">
+          <h2 id="wheatstone-heading" className="wheatstone-title">
             Meter Bridge (Wheatstone)
           </h2>
           <p style={{ color: "var(--text-muted)" }}>
@@ -170,21 +176,21 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
           </p>
         </div>
         {!examConfig && (
-          <div className="wheatstone-formula">
+          <div className="wheatstone-formula" aria-hidden="true">
             <span>
               R<sub style={{ fontSize: "0.8rem" }}>x</sub> = R × (L / (100 - L))
             </span>
           </div>
         )}
-      </div>
+      </header>
 
       <div className="wheatstone-grid">
         {/* Left Side: Circuit and Meter Bridge */}
         <div className="wheatstone-left-side">
           {/* Circuit Schematic Area */}
-          <div className="glass-panel wheatstone-circuit-panel">
+          <section className="glass-panel wheatstone-circuit-panel" aria-label="Circuit Visualizer">
             {/* Schema Visualizer */}
-            <div className="wheatstone-schema-wrapper">
+            <div className="wheatstone-schema-wrapper" aria-hidden="true">
               {/* Galvanometer */}
               <div className="wheatstone-galvanometer">
                 {/* Dial background */}
@@ -229,7 +235,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
 
             {/* Meter Bridge Wire */}
             <div className="wheatstone-slider-wrapper">
-              <div className="wheatstone-slider-labels">
+              <div className="wheatstone-slider-labels" aria-hidden="true">
                 <span>0 cm</span>
                 <span>100 cm</span>
               </div>
@@ -241,6 +247,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                 step="0.1"
                 value={jockeyL}
                 onChange={(e) => setJockeyL(parseFloat(e.target.value))}
+                aria-label="Adjust Jockey Position"
+                aria-valuemin={1}
+                aria-valuemax={99}
+                aria-valuenow={jockeyL}
                 style={{
                   width: "100%",
                   accentColor: "var(--primary)",
@@ -248,22 +258,22 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                   height: "6px",
                 }}
               />
-              <div className="wheatstone-slider-value">
+              <div className="wheatstone-slider-value" aria-live="polite" aria-atomic="true">
                 L = {jockeyL.toFixed(1)} cm
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Known R Control */}
-          <div className="glass-panel wheatstone-panel">
-            <div className="wheatstone-panel-header">
-              <div className="wheatstone-icon-green">
+          <section className="glass-panel wheatstone-panel" aria-label="Resistance Box">
+            <header className="wheatstone-panel-header">
+              <div className="wheatstone-icon-green" aria-hidden="true">
                 <Activity size={20} />
               </div>
               <h3 style={{ margin: 0 }}>Resistance Box (Known R)</h3>
-            </div>
+            </header>
 
-            <div className="device-display green wheatstone-meters">
+            <div className="device-display green wheatstone-meters" aria-live="polite">
               {knownR} Ω
             </div>
 
@@ -272,6 +282,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
               onChange={(e) => setKnownR(parseInt(e.target.value))}
               disabled={showAveragePhase || isEvaluated}
               className="wheatstone-select"
+              aria-label="Select Known Resistance Value"
             >
               {(examConfig && examFixedResistors.length > 0 ? examFixedResistors : STANDARD_RESISTORS).map((r) => (
                 <option key={r} value={r}>
@@ -279,15 +290,16 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                 </option>
               ))}
             </select>
-          </div>
+          </section>
         </div>
 
         {/* Right Side: Evaluation Block */}
-        <div
+        <section
           className="glass-panel"
           style={{ padding: "24px", display: "flex", flexDirection: "column" }}
+          aria-label="Evaluation Area"
         >
-          <div
+          <header
             style={{
               display: "flex",
               alignItems: "center",
@@ -302,13 +314,14 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                 borderRadius: "50%",
                 color: "#f59e0b",
               }}
+              aria-hidden="true"
             >
               <TriangleRight size={20} />
             </div>
             <h3 style={{ margin: 0 }}>
               Unknown Resistor (R<sub>x</sub>)
             </h3>
-          </div>
+          </header>
 
           <div
             style={{
@@ -331,6 +344,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                 justifyContent: "center",
                 padding: "20px 0",
               }}
+              aria-hidden="true"
             >
               <div
                 style={{ width: "40px", height: "4px", background: "#94a3b8" }}
@@ -411,7 +425,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
           </div>
 
           {examConfig && (
-            <div style={{ marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <div style={{ marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }} aria-live="polite">
                {examFixedResistors.map(r => (
                   <div key={r} style={{
                      padding: "8px 12px",
@@ -433,6 +447,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                               setExamStepResults(newResults);
                               setShowAveragePhase(false);
                               setKnownR(r);
+                              setJockeyL(50);
                            }}
                            style={{
                               background: "rgba(239, 68, 68, 0.2)",
@@ -444,6 +459,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                               fontSize: "0.8rem",
                               fontWeight: "bold"
                            }}
+                           aria-label={`Delete reading for ${r} Ohms`}
                         >
                            ✕
                         </button>
@@ -485,7 +501,10 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                          setShowAveragePhase(true);
                       } else {
                          const nextR = examFixedResistors.find(r => newResults[r] === undefined);
-                         if (nextR) setKnownR(nextR);
+                         if (nextR) {
+                            setKnownR(nextR);
+                            setJockeyL(50);
+                         }
                       }
                    }
                 } else {
@@ -505,6 +524,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     onChange={(e) => setStudentAnswer(e.target.value)}
                     disabled={isEvaluated || !isBalanced}
                     className="wheatstone-input"
+                    aria-label="Calculated Unknown Resistance"
                     style={{
                       borderColor: isEvaluated
                         ? examConfig
@@ -516,7 +536,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                       opacity: !isBalanced && !isEvaluated ? 0.5 : 1,
                     }}
                   />
-                  <span className="wheatstone-unit">Ω</span>
+                  <span className="wheatstone-unit" aria-hidden="true">Ω</span>
                 </div>
               ) : (
                 <div className="wheatstone-input-wrapper">
@@ -529,11 +549,12 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     onChange={(e) => setStudentAverage(e.target.value)}
                     disabled={isEvaluated}
                     className="wheatstone-input"
+                    aria-label="Calculated Average Resistance"
                     style={{
                       borderColor: isEvaluated ? "#10b981" : "#3b82f6"
                     }}
                   />
-                  <span className="wheatstone-unit">Ω</span>
+                  <span className="wheatstone-unit" aria-hidden="true">Ω</span>
                 </div>
               )}
 
@@ -548,6 +569,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                         : !studentAnswer.trim() || !isBalanced)
                     }
                     className="wheatstone-submit-btn"
+                    aria-disabled={!canSubmit}
                     style={{
                       cursor:
                         canSubmit &&
@@ -568,7 +590,7 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                   >
                     {!canSubmit ? (
                       <span className="flex-center">
-                        <RefreshCw size={16} className="animate-spin" />
+                        <RefreshCw size={16} className="animate-spin" aria-hidden="true" />
                         انتظر {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")} دقيقة
                       </span>
                     ) : (
@@ -576,8 +598,8 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     )}
                   </button>
                   {!canSubmit && (
-                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }}>
-                      يجب استيفاء وقت المراقبة الأدنى (5 دقائق) قبل إرسال النتيجة.
+                    <p style={{ fontSize: "0.8rem", color: "#fca5a5", textAlign: "center", margin: 0 }} role="alert">
+                      يجب استيفاء وقت المراقبة الأدنى (دقيقة) قبل إرسال النتيجة.
                     </p>
                   )}
                 </div>
@@ -587,8 +609,9 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                     type="button"
                     onClick={generateNewRx}
                     className="wheatstone-retry-btn"
+                    aria-label="Retry Experiment"
                   >
-                    <RefreshCw size={18} /> Retry
+                    <RefreshCw size={18} aria-hidden="true" /> Retry
                   </button>
                 )
               )}
@@ -597,6 +620,8 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
             {/* Result Feedback */}
             {isEvaluated && (
               <div
+                role="alert"
+                aria-live="assertive"
                 style={{
                   marginTop: "16px",
                   padding: "12px",
@@ -613,11 +638,11 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
                 }}
               >
                 {examConfig ? (
-                  <CheckCircle2 size={24} color="#3b82f6" />
+                  <CheckCircle2 size={24} color="#3b82f6" aria-hidden="true" />
                 ) : isCorrect ? (
-                  <CheckCircle2 size={24} color="#10b981" />
+                  <CheckCircle2 size={24} color="#10b981" aria-hidden="true" />
                 ) : (
-                  <XCircle size={24} color="#ef4444" />
+                  <XCircle size={24} color="#ef4444" aria-hidden="true" />
                 )}
                 <div>
                   <div
@@ -655,8 +680,8 @@ export default function WheatstoneBridge({ examConfig, onSubmitResult }) {
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </section>
   );
 }

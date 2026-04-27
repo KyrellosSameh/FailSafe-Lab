@@ -101,7 +101,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
 
   // ─── Cancel warning (when face returns) ───
   const cancelWarning = () => {
-    console.log("[Proctor] ✅ Face returned! Warning cancelled.");
+
     isWarningActive.current = false;
     warningStartTime.current = null;
     alertSentRef.current = false;
@@ -123,7 +123,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
   const handleKick = async () => {
     if (isKickedRef.current) return;
     isKickedRef.current = true;
-    console.log("[Proctor] ⛔ 30s timeout. Kicking student...");
+
 
     // Capture snapshot
     const snapshotPath = await captureSnapshot("alert");
@@ -140,7 +140,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
           alert_type: "face_absent",
           snapshot_path: snapshotPath || null,
         });
-        console.log("[Proctor] Alert sent to instructor.");
+
       } catch (err) {
         console.error("[Proctor] Alert error:", err);
       }
@@ -153,7 +153,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
   // ─── Start warning countdown ───
   const startWarning = () => {
     if (isWarningActive.current || isKickedRef.current) return;
-    console.log("[Proctor] ⚠️ Face absent! Starting 30-second warning...");
+
 
     isWarningActive.current = true;
     warningStartTime.current = Date.now();
@@ -247,7 +247,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
           alert_type: "tab_switch",
           snapshot_path: null,
         });
-        console.log("[Proctor] Tab-switch alert recorded.");
+
       } catch (err) {
         console.error("[Proctor] Tab-switch error:", err);
       }
