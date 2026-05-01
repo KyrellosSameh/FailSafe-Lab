@@ -8,13 +8,17 @@ import {
   TestTube,
   CheckCircle2,
   Copy,
-  ShieldCheck,
   Layers,
 } from "lucide-react";
 // استدعاء ملف الاتصال بقاعدة البيانات
 import { supabase } from "../../lib/supabaseClient";
 
-function CreateExamPage({ instructorId, onBack }) {
+interface CreateExamPageProps {
+  instructorId: string | number;
+  onBack: () => void;
+}
+
+function CreateExamPage({ instructorId, onBack }: CreateExamPageProps) {
   const [experiment, setExperiment] = useState("ohm");
 
   // Specific inputs
@@ -31,7 +35,7 @@ function CreateExamPage({ instructorId, onBack }) {
   const [copied, setCopied] = useState(false);
 
   // تعديل الدالة لتصبح Async للتعامل مع قاعدة البيانات
-  const handleGenerate = async (e) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setGeneratedCode("");
@@ -68,7 +72,7 @@ function CreateExamPage({ instructorId, onBack }) {
       // إذا نجح الإرسال لقاعدة البيانات، نظهر الكود للمدرس
       setGeneratedCode(code);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving exam to Supabase:", error.message);
       alert(
         "حدث خطأ أثناء حفظ الاختبار في قاعدة البيانات. تأكد من اتصالك بالإنترنت.",
@@ -91,7 +95,7 @@ function CreateExamPage({ instructorId, onBack }) {
 
     const experimentsList = ["ohm", "wheatstone", "hooke", "viscosity"];
     const liquids = ["Glycerin", "Castor Oil", "Motor Oil"];
-    const newExams = [];
+    const newExams: any[] = [];
 
     // التوليد العشوائي المتعدد
     for (let i = 0; i < 50; i++) {
@@ -102,9 +106,9 @@ function CreateExamPage({ instructorId, onBack }) {
       let code = "";
       do {
         code = Math.floor(100000 + Math.random() * 900000).toString();
-      } while (newExams.find((ex) => ex.session_code === code));
+      } while (newExams.find((ex: any) => ex.session_code === code));
 
-      const params = { requires_seb: true };
+      const params: any = { requires_seb: true };
       if (randExp === "ohm") {
         params.ohmResistance = Math.floor(Math.random() * (500 - 10 + 1)) + 10;
       } else if (randExp === "wheatstone") {

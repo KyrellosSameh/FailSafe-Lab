@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   GraduationCap,
@@ -10,15 +10,21 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
+import "../../components/common/Auth/auth.css";
 
-function LoginPage({ onBack, onLogin }) {
+interface InstructorLoginProps {
+  onBack: () => void;
+  onLogin: (data: { username: string; id: string | number }) => void;
+}
+
+function LoginPage({ onBack, onLogin }: InstructorLoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!username.trim() || !password.trim()) {

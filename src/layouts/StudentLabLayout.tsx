@@ -1,13 +1,13 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, LogOut, Activity, Atom, Scale, TestTube } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 
-import OhmsLaw from "../features/experiments/OhmsLaw";
-import WheatstoneBridge from "../features/experiments/WheatstoneBridge";
-import HookesLaw from "../features/experiments/HookesLaw";
-import Viscosity from "../features/experiments/Viscosity";
+import OhmsLaw from "../features/experiments/OhmsLaw/OhmsLaw";
+import WheatstoneBridge from "../features/experiments/WheatstoneBridge/WheatstoneBridge";
+import HookesLaw from "../features/experiments/HookesLaw/HookesLaw";
+import Viscosity from "../features/experiments/Viscosity/Viscosity";
 import CameraProctor from "../features/proctoring/CameraProctor";
+import "../features/proctoring/proctor.css";
 
 export const EXPERIMENT_NAV_ITEMS = [
   { id: "ohm", label: "Ohm's Law", icon: <Activity size={20} /> },
@@ -180,7 +180,7 @@ export default function StudentLabLayout({
       <main className="main-content" aria-label="Experiment Work Area">
         <header
           style={{
-            padding: "24px 32px",
+            padding: "16px 24px",
             borderBottom: "1px solid var(--border-color)",
             background: "var(--glass-bg)",
             backdropFilter: "blur(10px)",

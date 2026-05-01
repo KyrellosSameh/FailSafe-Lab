@@ -28,7 +28,7 @@ export default function StudentRoutes() {
     }
   });
 
-  const [timeLeft, setTimeLeft] = useState(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [showWarning, setShowWarning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,7 +67,7 @@ export default function StudentRoutes() {
   useEffect(() => {
     if (!examConfig || examConfig.examComplete) return;
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       // SECURITY: Block F12, Ctrl+Shift+I (DevTools), and Ctrl+U (View Source)
       if (
         e.key === "F12" ||
@@ -78,7 +78,7 @@ export default function StudentRoutes() {
       }
     };
 
-    const handleContextMenu = (e) => e.preventDefault();
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
 
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
@@ -125,7 +125,7 @@ export default function StudentRoutes() {
   }, [examConfig?.code, examConfig?.studentId, navigate]);
 
   // ─── Submit Handler ───
-  const handleExamSubmit = async (studentValue, actualValue, isSilent = false) => {
+  const handleExamSubmit = async (studentValue: string | number, actualValue: string | number, isSilent = false) => {
     if (!examConfig || examConfig.examComplete || isSubmitting) return;
     setIsSubmitting(true);
 
@@ -136,13 +136,37 @@ export default function StudentRoutes() {
         : "Pa·s";
 
     try {
+      let computedActualValue = actualValue;
+      if (computedActualValue === "N/A" && examConfig && examConfig.parameters) {
+        switch (examConfig.experiment) {
+          case "ohm":
+            computedActualValue = examConfig.parameters.ohmResistance;
+            break;
+          case "wheatstone":
+            computedActualValue = examConfig.parameters.wheatstoneUnknown;
+            break;
+          case "hooke":
+            computedActualValue = examConfig.parameters.hookeSpringConstant;
+            break;
+          case "viscosity": {
+            let viscosity = 0.95;
+            const name = examConfig.parameters.viscosityLiquid;
+            if (name === "Glycerin") viscosity = 1.41;
+            else if (name === "Castor Oil") viscosity = 0.98;
+            else if (name === "Motor Oil") viscosity = 0.65;
+            computedActualValue = JSON.stringify({ avg: viscosity, table: [] });
+            break;
+          }
+        }
+      }
+
       const rpcPayload = {
         p_student_id: examConfig.studentId.toString(),
         p_student_name: examConfig.studentName,
         p_exam_code: examConfig.code || "N/A",
         p_experiment: examConfig.experiment,
         p_student_result: String(studentValue),
-        p_actual_result: actualValue ? String(actualValue) : "N/A",
+        p_actual_result: computedActualValue ? String(computedActualValue) : "N/A",
         p_unit: unit,
       };
       
@@ -199,8 +223,8 @@ export default function StudentRoutes() {
 
   // ─── Exam Timer & Heartbeat Ping ───
   useEffect(() => {
-    let timer;
-    let pingTimer;
+    let timer: any;
+    let pingTimer: any;
     if (examConfig && examConfig.startTime && !examConfig.examComplete) {
       timer = setInterval(() => {
         // TIME PROTECTION: Auto-submit if time runs out
@@ -252,7 +276,7 @@ export default function StudentRoutes() {
         element={
           <StudentEntryPage
             onBack={() => navigate("/")}
-            onJoin={async (config) => {
+            onJoin={async (config: any) => {
               try {
                 await supabase
                   .from("exams")

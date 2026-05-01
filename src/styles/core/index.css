@@ -1,7 +1,9 @@
 @import "./variables.css";
 @import "./base.css";
-@import "../features/layout.css";
-@import "../pages/landing.css";
-@import "../pages/auth.css";
-@import "../features/proctor.css";
-@import "../components/tables.css";
+
+/* Legacy Global Styles - To be migrated to CSS Modules */
+@import "../../layouts/layout.css";
+@import "../../pages/landing.css";
+@import "../../components/common/Auth/auth.css";
+@import "../../features/proctoring/proctor.css";
+@import "../../pages/instructor/tables.css";

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   Shield,
@@ -10,15 +10,21 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
+import "../../components/common/Auth/auth.css";
 
-function AdminLogin({ onBack, onLogin }) {
+interface AdminLoginProps {
+  onBack: () => void;
+  onLogin: () => void;
+}
+
+function AdminLogin({ onBack, onLogin }: AdminLoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!username.trim() || !password.trim()) {

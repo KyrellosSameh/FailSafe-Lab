@@ -12,13 +12,29 @@ import {
 import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 import emailjs from "@emailjs/browser";
-import "../../styles/components/AdminDashboard.css";
+import "./AdminDashboard.css";
 
 
-function AdminDashboard({ onBack }) {
+interface Instructor {
+  id: number;
+  username: string;
+}
+
+interface Student {
+  student_id: string;
+  name: string;
+  email: string;
+  instructor_id: number;
+}
+
+interface AdminDashboardProps {
+  onBack: () => void;
+}
+
+function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [activeSection, setActiveSection] = useState("addInstructor");
-  const [instructors, setInstructors] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   // Add Instructor form
   const [instrUsername, setInstrUsername] = useState("");
@@ -52,13 +68,13 @@ function AdminDashboard({ onBack }) {
     fetchData();
   }, []);
 
-  const showMessage = (type, text) => {
+  const showMessage = (type: string, text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage({ type: "", text: "" }), 4000);
   };
 
   // ── Add Instructor ──
-  const handleAddInstructor = async (e) => {
+  const handleAddInstructor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!instrUsername.trim() || !instrPassword.trim()) {
       showMessage("error", "يرجى ملء جميع الحقول.");
@@ -94,7 +110,7 @@ function AdminDashboard({ onBack }) {
       setInstrUsername("");
       setInstrPassword("");
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       showMessage("error", "خطأ: " + err.message);
     } finally {
       setLoading(false);
@@ -102,7 +118,7 @@ function AdminDashboard({ onBack }) {
   };
 
   // ── Add Student Only ──
-  const handleAddStudentOnly = async (e) => {
+  const handleAddStudentOnly = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (
       !stuName.trim() ||
@@ -145,7 +161,7 @@ function AdminDashboard({ onBack }) {
         `تم إضافة الطالب "${stuName.trim()}" لقاعدة البيانات بنجاح!`,
       );
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       showMessage("error", "خطأ: " + err.message);
     } finally {
       setLoading(false);
@@ -153,7 +169,7 @@ function AdminDashboard({ onBack }) {
   };
 
   // ── Send Email Only ──
-  const handleSendEmailOnly = async (e) => {
+  const handleSendEmailOnly = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (
       !stuName.trim() ||
@@ -198,7 +214,7 @@ function AdminDashboard({ onBack }) {
   };
 
   // ── Delete ──
-  const handleDeleteInstructor = async (id) => {
+  const handleDeleteInstructor = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا الاستاذ بشكل نهائي؟ (سيتم حذف جميع الطلاب والاختبارات المرتبطة به)")) return;
     setLoading(true);
     try {
@@ -206,7 +222,7 @@ function AdminDashboard({ onBack }) {
       if (error) throw error;
       showMessage("success", "تم حذف الاستاذ وجميع بياناته بنجاح!");
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       showMessage("error", "خطأ في الحذف: " + err.message);
     } finally {
@@ -214,7 +230,7 @@ function AdminDashboard({ onBack }) {
     }
   };
 
-  const handleDeleteStudent = async (studentId) => {
+  const handleDeleteStudent = async (studentId: string) => {
     if (!confirm("هل أنت متأكد من حذف هذا الطالب بشكل نهائي؟ (سيتم حذف جميع اختباراته المرتبطة به)")) return;
     setLoading(true);
     try {
@@ -222,7 +238,7 @@ function AdminDashboard({ onBack }) {
       if (error) throw error;
       showMessage("success", "تم حذف الطالب وجميع اختباراته بنجاح!");
       fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       showMessage("error", "خطأ في الحذف: " + err.message);
     } finally {
@@ -230,7 +246,7 @@ function AdminDashboard({ onBack }) {
     }
   };
 
-  const handleResendPassword = async (stu) => {
+  const handleResendPassword = async (stu: Student) => {
     if (!stu.email) {
       showMessage("error", "لا يوجد بريد إلكتروني مسجل لهذا الطالب.");
       return;
@@ -267,9 +283,25 @@ function AdminDashboard({ onBack }) {
         "success",
         `تم تعيين كلمة المرور الجديدة وإرسالها بنجاح إلى ${stu.email}`,
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       showMessage("error", "حدث خطأ أثناء المعالجة: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCleanDatabase = async () => {
+    if (!confirm("تحذير خطير ⚠️\n\nهل أنت متأكد من رغبتك في حذف جميع الاختبارات، النتائج، وتنبيهات المراقبة السابقة من النظام؟\nهذا الإجراء نهائي ولا يمكن التراجع عنه!")) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.rpc("admin_clean_database");
+      if (error) throw error;
+
+      showMessage("success", "تم مسح جميع الاختبارات والنتائج وتنبيهات المراقبة بنجاح!");
+    } catch (err: any) {
+      console.error(err);
+      showMessage("error", "خطأ: لم يتم العثور على دالة الحذف أو هناك مشكلة في الصلاحيات. " + err.message);
     } finally {
       setLoading(false);
     }
@@ -284,6 +316,7 @@ function AdminDashboard({ onBack }) {
     { id: "addStudent", label: "إضافة طالب", icon: <UserPlus size={20} /> },
     { id: "viewInstructors", label: "عرض الاساتذة", icon: <Users size={20} /> },
     { id: "viewStudents", label: "عرض الطلاب", icon: <Search size={20} /> },
+    { id: "cleanDatabase", label: "تنظيف الداتابيز", icon: <Trash2 size={20} color="#ef4444" /> },
   ];
 
   const inputStyle = {
@@ -724,6 +757,60 @@ function AdminDashboard({ onBack }) {
                     لا يوجد طلاب مسجلون حالياً
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Clean Database ── */}
+          {activeSection === "cleanDatabase" && (
+            <div>
+              <h2 className="admin-section-title" style={{ color: "#ef4444" }}>
+                تنظيف قاعدة البيانات
+              </h2>
+              <p className="admin-section-desc">
+                استخدم هذا الخيار لمسح جميع الامتحانات السابقة، نتائج الطلاب، وتنبيهات المراقبة لتبدأ فصلاً دراسياً جديداً بنظام نظيف.
+              </p>
+
+              <div
+                className="glass-panel"
+                style={{
+                  padding: "30px",
+                  borderRadius: "16px",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  background: "rgba(239, 68, 68, 0.05)",
+                  marginTop: "20px",
+                  textAlign: "center",
+                }}
+              >
+                <Shield size={48} color="#ef4444" style={{ marginBottom: "16px" }} />
+                <h3 style={{ color: "#fff", marginBottom: "10px", fontSize: "1.4rem" }}>
+                  مسح شامل لبيانات الاختبارات
+                </h3>
+                <p style={{ color: "#94a3b8", marginBottom: "24px", lineHeight: "1.6" }}>
+                  سيتم حذف ما يلي بشكل نهائي:<br/>
+                  - جميع أكواد الامتحانات (الجلسات)<br/>
+                  - جميع نتائج إجابات وتقييمات الطلاب<br/>
+                  - جميع تنبيهات وصور المراقبة الذكية
+                </p>
+                <button
+                  onClick={handleCleanDatabase}
+                  disabled={loading}
+                  className={`admin-submit-btn ${loading ? "loading" : ""}`}
+                  style={{
+                    background: "linear-gradient(135deg, #ef4444, #b91c1c)",
+                    margin: "0 auto",
+                    maxWidth: "300px",
+                  }}
+                >
+                  {loading ? (
+                    <span className="auth-spinner" />
+                  ) : (
+                    <>
+                      <Trash2 size={18} />
+                      <span>تنظيف وحذف البيانات الآن</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}

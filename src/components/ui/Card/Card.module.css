@@ -1,0 +1,40 @@
+.card {
+  border-radius: var(--border-radius-lg, 12px);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* Variants */
+.variant-default {
+  background: var(--bg-card, #1a1a24);
+  border: 1px solid var(--border-color, #333);
+}
+
+.variant-elevated {
+  background: var(--bg-card, #1a1a24);
+  border: 1px solid var(--border-color, #333);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.variant-glass {
+  background: rgba(26, 26, 36, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Padding Options */
+.padding-none {
+  padding: 0;
+}
+
+.padding-small {
+  padding: 12px;
+}
+
+.padding-medium {
+  padding: 24px;
+}
+
+.padding-large {
+  padding: 32px;
+}

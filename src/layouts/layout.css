@@ -1,16 +1,18 @@
-﻿/* Base App Layout */
+/* Base App Layout */
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 280px;
+  width: 230px;
+  flex-shrink: 0;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  padding: 1.25rem;
   background: rgba(3, 4, 11, 0.85); /* Dark background matching overall app */
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
@@ -24,15 +26,18 @@
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  height: 100vh;
 }
 
 .experiment-area {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Custom Scrollbar */
@@ -105,51 +110,7 @@
   background: #0f1712;
 }
 
-/* Responsive Styles */
-@media (max-width: 768px) {
-  .app-container {
-    flex-direction: column;
-  }
 
-  .sidebar {
-    width: 100%;
-    padding: 1rem;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .sidebar nav {
-    flex-direction: row !important;
-    overflow-x: auto;
-    padding-bottom: 8px;
-    gap: 8px !important;
-  }
-
-  .sidebar nav button {
-    white-space: nowrap;
-    width: auto !important;
-  }
-
-  .sidebar .sidebar-footer {
-    display: none;
-  }
-
-  .sidebar .sidebar-header {
-    margin-bottom: 16px !important;
-  }
-
-  .experiment-area {
-    padding: 1rem;
-  }
-
-  .glass-panel {
-    padding: 16px !important;
-  }
-
-  .responsive-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
 
 /* Exam & Experiment Input Responsive Utilities */
 .exam-input-group {

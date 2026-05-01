@@ -5,6 +5,7 @@ import {
   Microscope,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import "./landing.css";
 
 function LandingPage() {
   const navigate = useNavigate();

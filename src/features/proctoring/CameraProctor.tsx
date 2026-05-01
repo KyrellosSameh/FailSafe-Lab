@@ -2,19 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { AlertTriangle, Eye, EyeOff, ShieldAlert } from "lucide-react";
 
-function CameraProctor({ examConfig, onKickStudent }) {
-  const videoRef = useRef(null);
+/**
+ * CameraProctor - Updated AI Proctoring Component from GitHub.
+ * Handles face detection, warning countdowns, and automatic kicking.
+ */
+function CameraProctor({ examConfig, onKickStudent }: { examConfig: any; onKickStudent: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStarted = useRef(false);
-  const mediaStreamRef = useRef(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   // --- REAL-TIME TRACKING REFS ---
   const consecutiveMisses = useRef(0);      // Counter for sequential frames with no face
   const isWarningActive = useRef(false);    // True if the 30s countdown is visible
-  const warningStartTime = useRef(null);    // Absolute timestamp of warning start
-  const warningTimerId = useRef(null);      // ID for the 30s kick timeout
-  const countdownTimerId = useRef(null);    // ID for the 1s UI counter interval
-  const faceCheckTimerId = useRef(null);
-  const snapshotTimerId = useRef(null);
+  const warningStartTime = useRef<number | null>(null);    // Absolute timestamp of warning start
+  const warningTimerId = useRef<any>(null);      // ID for the 30s kick timeout
+  const countdownTimerId = useRef<any>(null);    // ID for the 1s UI counter interval
+  const faceCheckTimerId = useRef<any>(null);
+  const snapshotTimerId = useRef<any>(null);
   const alertSentRef = useRef(false);
   const isKickedRef = useRef(false);
   const examCompleteRef = useRef(false);
@@ -37,9 +41,10 @@ function CameraProctor({ examConfig, onKickStudent }) {
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    let blob = null;
+    let blob: Blob | null = null;
     let ext = "webp";
     let mime = "image/webp";
 
@@ -93,7 +98,7 @@ function CameraProctor({ examConfig, onKickStudent }) {
         return null;
       }
       return purpose === "alert" ? `alerts/${fileName}` : fileName;
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[Proctor] ${purpose} upload exception:`, err.message);
       return null;
     }
@@ -101,7 +106,6 @@ function CameraProctor({ examConfig, onKickStudent }) {
 
   // ─── Cancel warning (when face returns) ───
   const cancelWarning = () => {
-
     isWarningActive.current = false;
     warningStartTime.current = null;
     alertSentRef.current = false;
@@ -124,11 +128,8 @@ function CameraProctor({ examConfig, onKickStudent }) {
     if (isKickedRef.current) return;
     isKickedRef.current = true;
 
-
-    // Capture snapshot
     const snapshotPath = await captureSnapshot("alert");
 
-    // Send alert to instructor
     if (!alertSentRef.current) {
       alertSentRef.current = true;
       try {
@@ -140,13 +141,11 @@ function CameraProctor({ examConfig, onKickStudent }) {
           alert_type: "face_absent",
           snapshot_path: snapshotPath || null,
         });
-
       } catch (err) {
         console.error("[Proctor] Alert error:", err);
       }
     }
 
-    // Kick
     if (onKickStudent) onKickStudent();
   };
 
@@ -154,23 +153,18 @@ function CameraProctor({ examConfig, onKickStudent }) {
   const startWarning = () => {
     if (isWarningActive.current || isKickedRef.current) return;
 
-
     isWarningActive.current = true;
     warningStartTime.current = Date.now();
     setShowWarning(true);
     setCountdown(30);
 
-    // Countdown updater (every second)
     countdownTimerId.current = setInterval(() => {
       if (!warningStartTime.current) return;
-      const elapsed = Math.floor(
-        (Date.now() - warningStartTime.current) / 1000,
-      );
+      const elapsed = Math.floor((Date.now() - warningStartTime.current) / 1000);
       const remaining = Math.max(0, 30 - elapsed);
       setCountdown(remaining);
     }, 1000);
 
-    // Kick after 30 seconds
     warningTimerId.current = setTimeout(() => {
       if (countdownTimerId.current) clearInterval(countdownTimerId.current);
       countdownTimerId.current = null;
@@ -179,63 +173,43 @@ function CameraProctor({ examConfig, onKickStudent }) {
     }, 30000);
   };
 
-  /**
-   * --- CORE FACE DETECTION LOOP ---
-   * Executed every 3 seconds to verify the student is present.
-   */
   const runFaceCheck = async () => {
-    if (!videoRef.current || !window.faceapi) return;
+    if (!videoRef.current || !(window as any).faceapi) return;
     if (examCompleteRef.current || isKickedRef.current) return;
 
-    // Ensure video is playing and has dimensions
     if (videoRef.current.readyState < 2 || !videoRef.current.videoWidth) return;
 
     try {
-      // Use larger input + lower threshold for better accuracy
-      const detection = await window.faceapi.detectSingleFace(
+      const detection = await (window as any).faceapi.detectSingleFace(
         videoRef.current,
-        new window.faceapi.TinyFaceDetectorOptions({
-          inputSize: 320, // Larger = more accurate (was 224)
-          scoreThreshold: 0.25, // Lower = less strict (was 0.4)
+        new (window as any).faceapi.TinyFaceDetectorOptions({
+          inputSize: 320,
+          scoreThreshold: 0.25,
         }),
       );
 
       if (detection && detection.score > 0.2) {
-        // ✅ Face detected
         consecutiveMisses.current = 0;
         setFaceStatus("detected");
-
-        // If warning is active, cancel it!
         if (isWarningActive.current) {
           cancelWarning();
         }
       } else {
-        // ❌ No face
         consecutiveMisses.current += 1;
         setFaceStatus("absent");
-
-        // Require 4 consecutive misses (12 seconds) before triggering warning
-        // This prevents false positives from brief glances or blinks
-        if (
-          consecutiveMisses.current >= 4 &&
-          !isWarningActive.current &&
-          !isKickedRef.current
-        ) {
+        if (consecutiveMisses.current >= 4 && !isWarningActive.current && !isKickedRef.current) {
           startWarning();
         }
       }
-    } catch (err) {
-      // Don't count errors as misses - could be temporary
+    } catch (err: any) {
       console.warn("[Proctor] Detection error (skipping):", err.message);
     }
   };
 
   // ─── Tab/Window Exit Detection ───
   useEffect(() => {
-    if (!examConfig || examConfig.examComplete) return;
+    if (!examConfig || examCompleteRef.current) return;
 
-    // Send alert via normal async (for tab switching)
-    // SEND ALERT: If student switches tabs/windows
     const sendTabSwitchAlert = async () => {
       if (isKickedRef.current || examCompleteRef.current) return;
       try {
@@ -247,20 +221,17 @@ function CameraProctor({ examConfig, onKickStudent }) {
           alert_type: "tab_switch",
           snapshot_path: null,
         });
-
       } catch (err) {
         console.error("[Proctor] Tab-switch error:", err);
       }
     };
 
-    // Send alert via fetch keepalive (for browser close - fires even when page unloads)
     const sendBrowserCloseAlert = () => {
       if (isKickedRef.current || examCompleteRef.current) return;
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        // 1. Send Alert (Using URLSearchParams to avoid CORS preflight delays on close)
         const alertParams = new URLSearchParams();
         alertParams.append("student_id", examConfig.studentId.toString());
         alertParams.append("student_name", examConfig.studentName || "غير معروف");
@@ -271,31 +242,26 @@ function CameraProctor({ examConfig, onKickStudent }) {
         const alertsUrl = `${supabaseUrl}/rest/v1/proctor_alerts?apikey=${supabaseKey}`;
         navigator.sendBeacon(alertsUrl, alertParams);
         
-        fetch(alertsUrl, {
-          method: 'POST',
-          body: alertParams,
-          keepalive: true
-        }).catch(() => {});
-
-        // 2. Mark exam as quit in results to remove "جاري الاختبار"
-        const rpcParams = new URLSearchParams();
-        rpcParams.append("p_student_id", examConfig.studentId.toString());
-        rpcParams.append("p_student_name", examConfig.studentName || "غير معروف");
-        rpcParams.append("p_exam_code", examConfig.code || "N/A");
-        rpcParams.append("p_experiment", examConfig.experiment || "unknown");
-        rpcParams.append("p_student_result", "--quit--");
-        rpcParams.append("p_actual_result", "N/A");
-        rpcParams.append("p_unit", "");
+        const rpcPayload = {
+          p_student_id: examConfig.studentId.toString(),
+          p_student_name: examConfig.studentName || "غير معروف",
+          p_exam_code: examConfig.code || "N/A",
+          p_experiment: examConfig.experiment || "unknown",
+          p_student_result: "--quit--",
+          p_actual_result: "N/A",
+          p_unit: ""
+        };
 
         const rpcUrl = `${supabaseUrl}/rest/v1/rpc/submit_exam_result?apikey=${supabaseKey}`;
-        navigator.sendBeacon(rpcUrl, rpcParams);
-
         fetch(rpcUrl, {
           method: 'POST',
-          body: rpcParams,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify(rpcPayload),
           keepalive: true
         }).catch(() => {});
-
       } catch (err) {
         console.error("[Proctor] Browser-close alert error:", err);
       }
@@ -307,7 +273,6 @@ function CameraProctor({ examConfig, onKickStudent }) {
       }
     };
 
-    // Flag to prevent sending multiple times
     let isClosing = false;
     const handleBeforeUnload = () => {
       if (isClosing) return;
@@ -328,9 +293,8 @@ function CameraProctor({ examConfig, onKickStudent }) {
     };
   }, [examConfig]);
 
-  // ─── Main effect: start camera + detection loop ───
   useEffect(() => {
-    if (!examConfig || examConfig.examComplete) return;
+    if (!examConfig || examCompleteRef.current) return;
     if (cameraStarted.current) return;
     cameraStarted.current = true;
 
@@ -347,27 +311,17 @@ function CameraProctor({ examConfig, onKickStudent }) {
 
         videoRef.current.onloadedmetadata = async () => {
           try {
-            await videoRef.current.play();
-          } catch (e) {
-            /* ignore */
-          }
+            await videoRef.current!.play();
+          } catch (e) {}
 
-          // First periodic snapshot
           captureSnapshot("periodic");
+          snapshotTimerId.current = setInterval(() => captureSnapshot("periodic"), 1 * 60 * 1000);
 
-          // Periodic snapshots every 1 minute
-          snapshotTimerId.current = setInterval(
-            () => captureSnapshot("periodic"),
-            1 * 60 * 1000,
-          );
-
-          // Wait for camera to warm up & auto-focus, then start detection
           setTimeout(() => {
-            // Run face check every 3 seconds
             faceCheckTimerId.current = setInterval(runFaceCheck, 3000);
           }, 3000);
         };
-      } catch (err) {
+      } catch (err: any) {
         console.error("[Proctor] Camera access denied:", err.message);
       }
     };
@@ -388,7 +342,6 @@ function CameraProctor({ examConfig, onKickStudent }) {
 
   return (
     <>
-      {/* Video element - still hidden but with proper size for detection */}
       <video
         ref={videoRef}
         width={640}
@@ -406,9 +359,9 @@ function CameraProctor({ examConfig, onKickStudent }) {
         playsInline
       />
 
-      {/* Small status indicator (bottom-right) */}
       {!examConfig?.examComplete && (
         <div
+          className="proctor-status-badge"
           style={{
             position: "fixed",
             bottom: "20px",
@@ -418,25 +371,9 @@ function CameraProctor({ examConfig, onKickStudent }) {
             gap: "8px",
             padding: "8px 14px",
             borderRadius: "20px",
-            background:
-              faceStatus === "detected"
-                ? "rgba(16, 185, 129, 0.15)"
-                : faceStatus === "absent"
-                  ? "rgba(239, 68, 68, 0.15)"
-                  : "rgba(148, 163, 184, 0.15)",
-            border: `1px solid ${
-              faceStatus === "detected"
-                ? "rgba(16, 185, 129, 0.3)"
-                : faceStatus === "absent"
-                  ? "rgba(239, 68, 68, 0.3)"
-                  : "rgba(148, 163, 184, 0.3)"
-            }`,
-            color:
-              faceStatus === "detected"
-                ? "#10b981"
-                : faceStatus === "absent"
-                  ? "#ef4444"
-                  : "#94a3b8",
+            background: faceStatus === "detected" ? "rgba(16, 185, 129, 0.15)" : faceStatus === "absent" ? "rgba(239, 68, 68, 0.15)" : "rgba(148, 163, 184, 0.15)",
+            border: `1px solid ${faceStatus === "detected" ? "rgba(16, 185, 129, 0.3)" : faceStatus === "absent" ? "rgba(239, 68, 68, 0.3)" : "rgba(148, 163, 184, 0.3)"}`,
+            color: faceStatus === "detected" ? "#10b981" : faceStatus === "absent" ? "#ef4444" : "#94a3b8",
             fontSize: "0.75rem",
             fontWeight: 500,
             zIndex: 999,
@@ -446,73 +383,24 @@ function CameraProctor({ examConfig, onKickStudent }) {
           }}
         >
           {faceStatus === "detected" ? <Eye size={14} /> : <EyeOff size={14} />}
-          <span>
-            {faceStatus === "detected"
-              ? "مراقب ✓"
-              : faceStatus === "absent"
-                ? "غير مرصود"
-                : "جاري الكشف..."}
-          </span>
+          <span>{faceStatus === "detected" ? "مراقب ✓" : faceStatus === "absent" ? "غير مرصود" : "جاري الكشف..."}</span>
         </div>
       )}
 
-      {/* 30-Second Warning Overlay */}
       {showWarning && !isKickedRef.current && (
         <div className="proctor-warning-overlay">
           <div className="proctor-warning-content">
-            <div className="proctor-warning-icon">
-              <ShieldAlert size={64} />
-            </div>
-
+            <div className="proctor-warning-icon"><ShieldAlert size={64} /></div>
             <div className="proctor-countdown-circle">
               <svg viewBox="0 0 120 120" className="proctor-countdown-svg">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  className="proctor-countdown-bg"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="54"
-                  className="proctor-countdown-progress"
-                  style={{
-                    strokeDasharray: `${2 * Math.PI * 54}`,
-                    strokeDashoffset: `${2 * Math.PI * 54 * (1 - countdown / 30)}`,
-                  }}
-                />
+                <circle cx="60" cy="60" r="54" className="proctor-countdown-bg" />
+                <circle cx="60" cy="60" r="54" className="proctor-countdown-progress" style={{ strokeDasharray: `${2 * Math.PI * 54}`, strokeDashoffset: `${2 * Math.PI * 54 * (1 - countdown / 30)}` }} />
               </svg>
               <span className="proctor-countdown-number">{countdown}</span>
             </div>
-
-            <h2 className="proctor-warning-title">
-              <AlertTriangle
-                size={28}
-                style={{
-                  display: "inline",
-                  verticalAlign: "middle",
-                  marginLeft: "8px",
-                }}
-              />
-              ⚠️ تم كشف غيابك!
-            </h2>
-            <p className="proctor-warning-text">
-              عُد أمام الكاميرا فوراً خلال <strong>{countdown}</strong> ثانية
-              <br />
-              وإلا سيتم{" "}
-              <strong style={{ color: "#ff4444" }}>
-                إنهاء الامتحان وإبلاغ الاستاذ
-              </strong>{" "}
-              تلقائياً
-            </p>
-
-            <div className="proctor-warning-bar">
-              <div
-                className="proctor-warning-bar-fill"
-                style={{ width: `${(countdown / 30) * 100}%` }}
-              />
-            </div>
+            <h2 className="proctor-warning-title"><AlertTriangle size={28} style={{ display: "inline", verticalAlign: "middle", marginLeft: "8px" }} />⚠️ تم كشف غيابك!</h2>
+            <p className="proctor-warning-text">عُد أمام الكاميرا فوراً خلال <strong>{countdown}</strong> ثانية<br />وإلا سيتم <strong style={{ color: "#ff4444" }}>إنهاء الامتحان وإبلاغ الاستاذ</strong> تلقائياً</p>
+            <div className="proctor-warning-bar"><div className="proctor-warning-bar-fill" style={{ width: `${(countdown / 30) * 100}%` }} /></div>
           </div>
         </div>
       )}

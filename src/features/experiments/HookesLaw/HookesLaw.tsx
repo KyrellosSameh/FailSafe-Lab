@@ -7,8 +7,8 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import "../../styles/components/HookesLaw.css";
-import { ExamConfig } from "../../layouts/StudentLabLayout";
+import "./HookesLaw.css";
+import { ExamConfig } from "../../../layouts/StudentLabLayout";
 
 interface AttachedMass {
   id: number;
@@ -56,28 +56,6 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
   const [graphF2, setGraphF2] = useState<string>("");
   const [graphX2, setGraphX2] = useState<string>("");
   const [studentSlope, setStudentSlope] = useState<string>("");
-
-  // 1-minute submission lock
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-
-  useEffect(() => {
-    if (!examConfig || !examConfig.startTime) return;
-
-    const calculateTimeLeft = () => {
-      const start = new Date(examConfig.startTime).getTime();
-      const now = new Date().getTime();
-      const diff = now - start;
-      const lockMinutes = 1 * 60 * 1000;
-      const remaining = Math.max(0, Math.ceil((lockMinutes - diff) / 1000));
-      setTimeLeft(remaining);
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-    return () => clearInterval(timer);
-  }, [examConfig]);
-
-  const canSubmit = !examConfig || timeLeft === 0;
 
   const generateNewSpring = useCallback(() => {
     if (examConfig) {
@@ -139,10 +117,18 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
   const activeMasses = examConfig && examMasses.length > 0 ? examMasses : MASS_TYPES;
 
   const mass = attachedMasses.reduce((sum, m) => sum + m.grams / 1000, 0); // kg
-  const [currentVisualDisplacement, setCurrentVisualDisplacement] = useState<number>(0);
 
   const physicsRef = useRef({ y: 0, v: 0, lastTime: 0 });
-  const reqRef = useRef<number>();
+  const reqRef = useRef<number | null>(null);
+
+  // Direct DOM Manipulation Refs for 60FPS animation (No React re-renders)
+  const springSvgRef = useRef<SVGSVGElement>(null);
+  const springPathInnerRef = useRef<SVGPathElement>(null);
+  const springPathOuterRef = useRef<SVGPathElement>(null);
+  const massGroupRef = useRef<HTMLDivElement>(null);
+  const displacementTextRef = useRef<HTMLSpanElement>(null);
+  const displacementMarkerRef = useRef<HTMLDivElement>(null);
+  const arrowContainerRef = useRef<HTMLDivElement>(null);
 
   const g = 9.8; // m/s^2
 
@@ -151,10 +137,6 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
   const theoreticalDisplacement = useMemo(() => theoreticalForce / springConstant, [theoreticalForce, springConstant]); // meters
   const force = theoreticalForce;
   const targetDisplacement = useMemo(() => theoreticalDisplacement * noiseMultiplier, [theoreticalDisplacement, noiseMultiplier]);
-
-  // Live displacement for UI
-  const liveDisplacement = useMemo(() => currentVisualDisplacement / 1000, [currentVisualDisplacement]);
-  const readingNoiseCm = useMemo(() => Math.sin(currentVisualDisplacement * 0.07) * 0.05, [currentVisualDisplacement]);
 
   const visualTargetDisplacement = useMemo(() => targetDisplacement * 1000, [targetDisplacement]); // Scaled to pixels for UI
   const baseSpringLength = 80; // Starting length of the spring in pixels
@@ -186,14 +168,70 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
       state.v += acceleration * dt;
       state.y += state.v * dt;
 
-      // Update the visual state which triggers the SVG re-draw
-      setCurrentVisualDisplacement(state.y);
+      // --- DIRECT DOM MANIPULATION (No setState inside loop) ---
+      const currentY = state.y;
+      const totalLen = baseSpringLength + currentY;
+      
+      // Generate SVG Path
+      const numCoils = 15;
+      const coilHeight = (totalLen - 10) / numCoils;
+      const coilWidth = 20;
+      let path = `M 0,0 L 0,10 `;
+      for (let i = 0; i < numCoils; i++) {
+        const yControl1 = 10 + i * coilHeight + coilHeight / 3;
+        const yControl2 = 10 + i * coilHeight + (2 * coilHeight) / 3;
+        const yEnd = 10 + (i + 1) * coilHeight;
+        if (i % 2 === 0) {
+          path += `C ${coilWidth},${yControl1} ${coilWidth},${yControl2} 0,${yEnd} `;
+        } else {
+          path += `C -${coilWidth},${yControl1} -${coilWidth},${yControl2} 0,${yEnd} `;
+        }
+      }
+      path += `L 0,${totalLen + 20}`;
 
+      // Update Spring
+      if (springSvgRef.current) springSvgRef.current.setAttribute("height", (totalLen + 20).toString());
+      if (springPathOuterRef.current) springPathOuterRef.current.setAttribute("d", path);
+      if (springPathInnerRef.current) springPathInnerRef.current.setAttribute("d", path);
+
+      // Update Mass Position
+      if (massGroupRef.current) massGroupRef.current.style.transform = `translateX(-50%) translateY(${currentY}px)`;
+
+      // Update UI Text & Indicators
+      const liveDisp = currentY / 1000;
+      const noise = Math.sin(currentY * 0.07) * 0.05;
+      
+      if (displacementMarkerRef.current) {
+        if (liveDisp > 0.005) {
+          displacementMarkerRef.current.style.display = "block";
+          displacementMarkerRef.current.style.top = `${liveDisp * 1000 + baseSpringLength + 10}px`;
+        } else {
+          displacementMarkerRef.current.style.display = "none";
+        }
+      }
+
+      if (arrowContainerRef.current) {
+        if (liveDisp > 0.003) {
+          arrowContainerRef.current.style.display = "flex";
+          arrowContainerRef.current.style.height = `${Math.max(0, currentY)}px`;
+        } else {
+          arrowContainerRef.current.style.display = "none";
+        }
+      }
+
+      if (displacementTextRef.current) {
+        displacementTextRef.current.innerText = `x = ${Math.max(0, liveDisp * 100 + noise).toFixed(1)} cm`;
+      }
+
+      // Loop condition
       if (
         Math.abs(state.v) > 0.5 ||
         Math.abs(state.y - visualTargetDisplacement) > 0.5
       ) {
         reqRef.current = requestAnimationFrame(loop);
+      } else {
+        // Snap to final to remove visual jitters if completely stopped
+        state.v = 0;
       }
     };
 
@@ -204,29 +242,6 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
       if (reqRef.current) cancelAnimationFrame(reqRef.current);
     };
   }, [mass, springConstant, visualTargetDisplacement]);
-
-  // --- DYNAMIC SVG SPRING PATH GENERATION ---
-  const numCoils = 15;
-  const totalSpringLength = useMemo(() => baseSpringLength + currentVisualDisplacement, [currentVisualDisplacement]);
-  
-  const springPath = useMemo(() => {
-    const coilHeight = (totalSpringLength - 10) / numCoils;
-    const coilWidth = 20;
-    let path = `M 0,0 L 0,10 `;
-    for (let i = 0; i < numCoils; i++) {
-      const yControl1 = 10 + i * coilHeight + coilHeight / 3;
-      const yControl2 = 10 + i * coilHeight + (2 * coilHeight) / 3;
-      const yEnd = 10 + (i + 1) * coilHeight;
-
-      if (i % 2 === 0) {
-        path += `C ${coilWidth},${yControl1} ${coilWidth},${yControl2} 0,${yEnd} `;
-      } else {
-        path += `C -${coilWidth},${yControl1} -${coilWidth},${yControl2} 0,${yEnd} `;
-      }
-    }
-    path += `L 0,${totalSpringLength + 20}`;
-    return path;
-  }, [totalSpringLength]);
 
   const handleEvaluate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,23 +344,25 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
                 </div>
               );
             })}
-            {liveDisplacement > 0.005 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: `${liveDisplacement * 1000 + baseSpringLength + 10}px`,
-                  right: "-4px",
-                  width: "8px",
-                  height: "8px",
-                  background: "#f59e0b",
-                  borderRadius: "50%",
-                  border: "1px solid white",
-                  transform: "translateY(-50%)",
-                  zIndex: 20,
-                  boxShadow: "0 0 6px #f59e0b",
-                }}
-              />
-            )}
+            {/* DOM Mutated Indicator Marker */}
+            <div
+              ref={displacementMarkerRef}
+              style={{
+                position: "absolute",
+                top: `${baseSpringLength + 10}px`,
+                right: "-4px",
+                width: "8px",
+                height: "8px",
+                background: "#f59e0b",
+                borderRadius: "50%",
+                border: "1px solid white",
+                transform: "translateY(-50%)",
+                zIndex: 20,
+                boxShadow: "0 0 6px #f59e0b",
+                display: "none"
+              }}
+            />
+
             <div
               style={{
                 position: "absolute",
@@ -376,12 +393,14 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
           {/* Spring Matrix */}
           <div className="hookes-law-spring-matrix" aria-hidden="true">
             <svg
+              ref={springSvgRef}
               width="100"
-              height={totalSpringLength + 20}
+              height={baseSpringLength + 20}
               style={{ overflow: "visible" }}
             >
               <path
-                d={springPath}
+                ref={springPathOuterRef}
+                d={`M 0,0 L 0,${baseSpringLength + 20}`}
                 fill="none"
                 stroke="#cbd5e1"
                 strokeWidth={4 + springConstant / 10}
@@ -389,7 +408,8 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
                 strokeLinejoin="round"
               />
               <path
-                d={springPath}
+                ref={springPathInnerRef}
+                d={`M 0,0 L 0,${baseSpringLength + 20}`}
                 fill="none"
                 stroke="#ffffff"
                 strokeWidth={(4 + springConstant / 10) / 3}
@@ -399,99 +419,110 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
               />
             </svg>
 
-            {mass > 0 && (
-              <div
-                style={{
-                  width: `${50 + mass * 30}px`,
-                  height: `${50 + mass * 30}px`,
-                  background:
-                    "radial-gradient(circle at 35% 35%, #a1a1aa, #3f3f46)",
-                  borderRadius: "50%",
-                  boxShadow:
-                    "0 10px 20px -3px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.25)",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  color: "white",
-                  fontWeight: "bold",
-                  fontSize: "0.8rem",
-                  marginTop: "-5px",
-                }}
-              >
-                {mass.toFixed(2)} kg
-              </div>
-            )}
+            {/* DOM Mutated Mass Group */}
+            <div
+              ref={massGroupRef}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                position: "absolute",
+                top: `${baseSpringLength + 10}px`,
+                left: "50%",
+                transform: "translateX(-50%)",
+              }}
+            >
+              {mass > 0 && (
+                <div
+                  style={{
+                    width: `${50 + mass * 30}px`,
+                    height: `${50 + mass * 30}px`,
+                    background:
+                      "radial-gradient(circle at 35% 35%, #a1a1aa, #3f3f46)",
+                    borderRadius: "50%",
+                    boxShadow:
+                      "0 10px 20px -3px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.25)",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    color: "white",
+                    fontWeight: "bold",
+                    fontSize: "0.8rem",
+                    marginTop: "-5px",
+                    transform: "translateX(-50%)"
+                  }}
+                >
+                  {mass.toFixed(2)} kg
+                </div>
+              )}
+            </div>
 
-            {liveDisplacement > 0.003 && (
+            {/* DOM Mutated Arrow container */}
+            <div
+              ref={arrowContainerRef}
+              style={{
+                position: "absolute",
+                left: "-70px",
+                top: `${baseSpringLength + 10}px`,
+                height: `0px`,
+                display: "none",
+                alignItems: "center",
+              }}
+            >
               <div
                 style={{
-                  position: "absolute",
-                  left: "-70px",
-                  top: `${baseSpringLength + 10}px`,
-                  height: `${Math.max(0, currentVisualDisplacement)}px`,
-                  display: "flex",
-                  alignItems: "center",
+                  position: "relative",
+                  height: "100%",
+                  width: "2px",
+                  background: "#f59e0b",
                 }}
               >
                 <div
                   style={{
-                    position: "relative",
-                    height: "100%",
-                    width: "2px",
+                    position: "absolute",
+                    top: 0,
+                    left: "-4px",
+                    width: "10px",
+                    height: "2px",
                     background: "#f59e0b",
                   }}
+                ></div>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: "-4px",
+                    width: "10px",
+                    height: "2px",
+                    background: "#f59e0b",
+                  }}
+                ></div>
+                <ArrowDown
+                  size={14}
+                  color="#f59e0b"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "-6px",
+                    transform: "translateY(-50%)",
+                  }}
+                />
+                <span
+                  ref={displacementTextRef}
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    right: "14px",
+                    transform: "translateY(-50%)",
+                    color: "#f59e0b",
+                    fontSize: "0.75rem",
+                    whiteSpace: "nowrap",
+                  }}
                 >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: "-4px",
-                      width: "10px",
-                      height: "2px",
-                      background: "#f59e0b",
-                    }}
-                  ></div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: "-4px",
-                      width: "10px",
-                      height: "2px",
-                      background: "#f59e0b",
-                    }}
-                  ></div>
-                  <ArrowDown
-                    size={14}
-                    color="#f59e0b"
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "-6px",
-                      transform: "translateY(-50%)",
-                    }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      right: "14px",
-                      transform: "translateY(-50%)",
-                      color: "#f59e0b",
-                      fontSize: "0.75rem",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    x ={" "}
-                    {Math.max(
-                      0,
-                      liveDisplacement * 100 + readingNoiseCm,
-                    ).toFixed(1)}{" "}
-                    cm
-                  </span>
-                </div>
+                  x = 0.0 cm
+                </span>
               </div>
-            )}
+            </div>
           </div>
         </section>
 
@@ -685,7 +716,7 @@ export default function HookesLaw({ examConfig, onSubmitResult }: HookesLawProps
                     Displacement (x):
                   </span>
                   <span className="live-reading-value disp">
-                    {(liveDisplacement * 100).toFixed(1)} cm
+                    {(targetDisplacement * 100).toFixed(1)} cm
                   </span>
                 </div>
               </div>

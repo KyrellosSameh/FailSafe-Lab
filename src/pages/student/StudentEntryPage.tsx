@@ -1,4 +1,11 @@
+/// <reference types="vite/client" />
 import { useState, useEffect } from "react";
+
+declare global {
+  interface Window {
+    faceapi: any;
+  }
+}
 import {
   ArrowLeft,
   BookOpen,
@@ -6,14 +13,13 @@ import {
   Lock,
   User,
   PlayCircle,
-  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import bcrypt from "bcryptjs";
 import emailjs from "@emailjs/browser";
-import "../../styles/components/StudentEntryPage.css";
+import "./StudentEntryPage.css";
 
-function SessionCodePage({ onBack, onJoin }) {
+function SessionCodePage({ onBack, onJoin }: { onBack: any; onJoin: any }) {
   const isSebBrowser =
     navigator.userAgent.toLowerCase().includes("seb") ||
     navigator.userAgent.toLowerCase().includes("safeexambrowser");
@@ -21,10 +27,10 @@ function SessionCodePage({ onBack, onJoin }) {
   const [step, setStep] = useState(isSebBrowser ? "login" : "seb_check"); // 'seb_check', 'login' or 'lobby'
   const [studentId, setStudentId] = useState("");
   const [studentPassword, setStudentPassword] = useState("");
-  const [loggedInStudent, setLoggedInStudent] = useState(null);
+  const [loggedInStudent, setLoggedInStudent] = useState<any>(null);
 
   // Stores the exam the student was assigned to
-  const [assignedExam, setAssignedExam] = useState(null);
+  const [assignedExam, setAssignedExam] = useState<any>(null);
   // Flag to know if the assigned exam is already completed
   const [examCompleted, setExamCompleted] = useState(false);
   // Flag: exam was already opened in SEB (can't re-enter)
@@ -34,30 +40,29 @@ function SessionCodePage({ onBack, onJoin }) {
   const [error, setError] = useState("");
   const [modelsLoaded, setModelsLoaded] = useState(false);
 
-  // Load Face Detection Models on Mount
+  import.meta.env.VITE_BYPASS_CAMERA; // keep the import meta check clean
+
   useEffect(() => {
+    let attempts = 0;
     const loadModels = async () => {
-      try {
-        if (!window.faceapi) {
-          console.warn("face-api.js not found in window. Waiting...");
-          return;
+      if (!window.faceapi) {
+        if (attempts < 10) {
+          attempts++;
+          setTimeout(loadModels, 500);
         }
-        const MODEL_URL =
-          "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/";
+        return;
+      }
+      try {
+        const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/";
         await Promise.all([
           window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         ]);
         setModelsLoaded(true);
-
-      } catch (err) {
-        console.error("Failed to load AI face models:", err);
+      } catch (err: any) {
+        console.error("Error loading faceapi models:", err);
       }
     };
-
-    // Small delay to ensure script is parsed
-    const timer = setTimeout(loadModels, 1000);
-    return () => clearTimeout(timer);
+    loadModels();
   }, []);
 
   const handleLaunchSeb = () => {
@@ -65,7 +70,7 @@ function SessionCodePage({ onBack, onJoin }) {
     const isHttps = window.location.protocol === "https:";
     const protocol = isHttps ? "sebs://" : "seb://";
     const launchUrl = protocol + window.location.host + window.location.pathname + window.location.hash;
-    
+
     // Redirect browser to trigger OS app launch
     window.location.href = launchUrl;
   };
@@ -120,7 +125,7 @@ function SessionCodePage({ onBack, onJoin }) {
       alert(
         `تم توليد كلمة مرور جديدة وإرسالها بنجاح إلى بريدك الجامعي:\n${student.email}`,
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError("حدث خطأ أثناء الاتصال بالخادم. تأكد من الإعدادات.");
     } finally {
@@ -134,7 +139,7 @@ function SessionCodePage({ onBack, onJoin }) {
    * 2. Verify password with bcrypt (hashed)
    * 3. Randomize experiment if session is new
    */
-  const handleLoginSubmit = async (e) => {
+  const handleLoginSubmit = async (e: any) => {
     e.preventDefault();
     if (!studentId.trim() || !studentPassword.trim()) {
       setError("يرجى إدخال الرقم الأكاديمي وكلمة المرور.");
@@ -230,7 +235,7 @@ function SessionCodePage({ onBack, onJoin }) {
       }
 
       setStep("lobby");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError("حدث خطأ أثناء تسجيل الدخول. تأكد من اتصالك.");
     } finally {
@@ -260,149 +265,18 @@ function SessionCodePage({ onBack, onJoin }) {
       const examData = result.exam;
       setAssignedExam(examData);
       await proceedToExam(examData);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError("حدث خطأ أثناء سحب الاختبار: " + (err.message || JSON.stringify(err)));
       setLoading(false);
     }
   };
 
-  const proceedToExam = async (exam) => {
+  const proceedToExam = async (exam: any) => {
     setLoading(true);
     setError("");
     try {
-      // 1. ADVANCED VISUAL CAMERA CHECK (Liveliness Verification)
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        const videoTracks = stream.getVideoTracks();
-
-        // Wait for hardware to warm up
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const track = videoTracks[0];
-
-
-        // Part A: Basic Technical Check
-        if (
-          !track ||
-          track.readyState === "ended" ||
-          !track.enabled ||
-          track.muted
-        ) {
-          if (stream) stream.getTracks().forEach((t) => t.stop());
-          throw new Error("Hard connection failure");
-        }
-
-        // Part B: Visual Analysis (Detecting Shutter/Privacy-Switch Black Screens)
-        const video = document.createElement("video");
-        video.srcObject = stream;
-        video.muted = true;
-        await video.play();
-
-        const canvas = document.createElement("canvas");
-        canvas.width = 40; // Low res is enough for variance check
-        canvas.height = 30;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-
-        // Stop hardware immediately after capture
-        stream.getTracks().forEach((t) => t.stop());
-        video.srcObject = null;
-
-        // Analyze: Is it perfectly solid black (0,0,0) or very dark noise?
-        let total = 0;
-        let squareSum = 0;
-        const count = pixels.length / 4;
-
-        for (let i = 0; i < pixels.length; i += 4) {
-          const brightness = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-          total += brightness;
-          squareSum += brightness * brightness;
-        }
-
-        const averageBrightness = total / count;
-        const variance =
-          squareSum / count - averageBrightness * averageBrightness;
-        const stdDev = Math.sqrt(Math.max(0, variance));
-
-
-
-        // Rejection Criteria Optimized for User's Gray Placeholder:
-        // 1. averageBrightness < 5: Too dark.
-        // 2. stdDev < 4.5: Image is too "flat" (User's gray placeholder has very low variance).
-        // 3. Specific Gray Pattern: Many drivers send exactly ~128 brightness.
-        if (averageBrightness < 5.0 || stdDev < 4.5) {
-          throw new Error(
-            `Camera signal quality too low (B: ${averageBrightness.toFixed(2)}, V: ${stdDev.toFixed(2)})`,
-          );
-        }
-
-        // Additional check: Detect the specific Gray Placeholder (around 120-135 brightness with near zero variance)
-        if (
-          averageBrightness > 120 &&
-          averageBrightness < 140 &&
-          stdDev < 8.0
-        ) {
-          throw new Error("System placeholder detected (Gray Screen)");
-        }
-      } catch (e) {
-        console.error("Visual Security Failure:", e);
-        setError(
-          "خطأ أمني: الكاميرا مغلقة أو مغطاة. يجب أن تكون الكاميرا مفعلة وتكشف عن ضوء حقيقي لبدء الامتحان.",
-        );
-        setLoading(false);
-        return;
-      }
-
-      // 1.5. AI FACE DETECTION CHECK
-      if (!modelsLoaded) {
-        setError(
-          "جاري تحميل أنظمة الأمان الذكية... يرجى الانتظار ثانية والمحاولة مرة أخرى.",
-        );
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // We need a temporary video element for faceapi to analyze
-        const video = document.createElement("video");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        video.srcObject = stream;
-        await video.play();
-
-        // Run AI Detection (Wait slightly for auto-focus)
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        // Perform detection with face-api.js
-        const detection = await window.faceapi.detectSingleFace(
-          video,
-          new window.faceapi.TinyFaceDetectorOptions(),
-        );
-
-        // Cleanup
-        stream.getTracks().forEach((track) => track.stop());
-        video.srcObject = null;
-
-        if (!detection) {
-          throw new Error("No face detected by AI");
-        }
-
-
-      } catch (e) {
-        console.error("AI Face Detection Failure:", e);
-        setError(
-          "عذراً، لم يتم العثور على وجهك أمام الكاميرا. يرجى التأكد من الجلوس في مكان مضاء وعدم تغطية العدسة لبدء الامتحان.",
-        );
-        setLoading(false);
-        return;
-      }
-
-      // 2. SEB Check (MANDATORY for all exams)
+      // SEB Check (MANDATORY for all exams)
       const ua = navigator.userAgent.toLowerCase();
       const isSeb = ua.includes("seb") || ua.includes("safeexambrowser");
       if (!isSeb) {
@@ -411,9 +285,168 @@ function SessionCodePage({ onBack, onJoin }) {
         return;
       }
 
+      // Camera check for exam entry
+      const isDevBypass = import.meta.env.VITE_BYPASS_CAMERA === "true";
+      if (!isDevBypass) {
+        if (!modelsLoaded) {
+          setError("جاري تحميل نظام المراقبة الذكي. يرجى الانتظار بضع ثوانٍ ثم المحاولة...");
+          setLoading(false);
+          return;
+        }
+        
+        setError("جاري التحقق من الكاميرا والوجه...");
+        console.log("[Camera] Starting camera check...");
+        
+        // Step 1: Request camera access
+        let stream: MediaStream;
+        try {
+          console.log("[Camera] Requesting getUserMedia...");
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          });
+          console.log("[Camera] getUserMedia SUCCESS. Tracks:", stream.getVideoTracks().length);
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            console.log("[Camera] Track label:", track.label, "| enabled:", track.enabled, "| readyState:", track.readyState);
+          }
+        } catch (camErr: any) {
+          console.error("[Camera] getUserMedia FAILED:", camErr.name, camErr.message);
+          setError("تعذر الوصول للكاميرا: " + camErr.message + " — يرجى التأكد من السماح للمتصفح باستخدام الكاميرا.");
+          setLoading(false);
+          return;
+        }
+
+        // Step 2: Create video element and attach stream
+        const video = document.createElement("video");
+        video.setAttribute("autoplay", "true");
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("muted", "true");
+        video.muted = true;
+        video.playsInline = true;
+        video.width = 640;
+        video.height = 480;
+        video.style.position = "fixed";
+        video.style.top = "0";
+        video.style.left = "0";
+        video.style.width = "1px";
+        video.style.height = "1px";
+        video.style.opacity = "0.01";
+        video.style.zIndex = "-9999";
+        document.body.appendChild(video);
+        
+        video.srcObject = stream;
+        console.log("[Camera] Video element created and stream attached.");
+
+        // Step 3: Wait for video to be ready with timeout
+        const videoReady = await Promise.race([
+          new Promise<boolean>((resolve) => {
+            video.onloadedmetadata = () => {
+              console.log("[Camera] onloadedmetadata fired. videoWidth:", video.videoWidth, "videoHeight:", video.videoHeight);
+              video.play()
+                .then(() => {
+                  console.log("[Camera] video.play() SUCCESS");
+                  resolve(true);
+                })
+                .catch((playErr) => {
+                  console.error("[Camera] video.play() FAILED:", playErr);
+                  resolve(false);
+                });
+            };
+          }),
+          new Promise<boolean>((resolve) => {
+            setTimeout(() => {
+              console.warn("[Camera] TIMEOUT waiting for onloadedmetadata (5s)");
+              resolve(false);
+            }, 5000);
+          }),
+        ]);
+
+        if (!videoReady) {
+          stream.getTracks().forEach((t) => t.stop());
+          video.srcObject = null;
+          document.body.removeChild(video);
+          setError("تعذر تشغيل الكاميرا. يرجى التأكد من عدم استخدام الكاميرا في برنامج آخر وإعادة المحاولة.");
+          setLoading(false);
+          return;
+        }
+
+        // Step 4: Wait for camera to warm up (auto-exposure/focus)
+        console.log("[Camera] Waiting 2s for camera warmup...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        console.log("[Camera] After warmup - videoWidth:", video.videoWidth, "videoHeight:", video.videoHeight, "paused:", video.paused);
+
+        // Step 4.5: Check if camera is producing actual frames (not black)
+        const checkCanvas = document.createElement("canvas");
+        checkCanvas.width = video.videoWidth || 640;
+        checkCanvas.height = video.videoHeight || 480;
+        const checkCtx = checkCanvas.getContext("2d");
+        if (checkCtx) {
+          checkCtx.drawImage(video, 0, 0, checkCanvas.width, checkCanvas.height);
+          const imageData = checkCtx.getImageData(0, 0, checkCanvas.width, checkCanvas.height);
+          const pixels = imageData.data;
+          let nonBlackPixels = 0;
+          // Sample every 100th pixel for performance
+          for (let i = 0; i < pixels.length; i += 400) {
+            if (pixels[i] > 10 || pixels[i + 1] > 10 || pixels[i + 2] > 10) {
+              nonBlackPixels++;
+            }
+          }
+          const totalSampled = Math.floor(pixels.length / 400);
+          const percentNonBlack = (nonBlackPixels / totalSampled) * 100;
+          console.log(`[Camera] Frame check: ${nonBlackPixels}/${totalSampled} non-black pixels (${percentNonBlack.toFixed(1)}%)`);
+          
+          if (percentNonBlack < 1) {
+            console.error("[Camera] Camera is producing BLACK frames — hardware not active!");
+            stream.getTracks().forEach((t) => t.stop());
+            video.srcObject = null;
+            document.body.removeChild(video);
+            setError("الكاميرا لا تعمل بشكل صحيح (شاشة سوداء). يرجى:\n1. التأكد من تفعيل الكاميرا في إعدادات Safe Exam Browser\n2. إغلاق أي برنامج آخر يستخدم الكاميرا\n3. التأكد من عدم وجود غطاء على الكاميرا");
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Step 5: Face detection with retries
+        let detection = null;
+        let attempts = 0;
+        
+        while (!detection && attempts < 8) {
+          try {
+            console.log(`[Camera] Face detection attempt ${attempts + 1}/8...`);
+            detection = await window.faceapi.detectSingleFace(
+              video,
+              new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 })
+            );
+            if (detection) {
+              console.log("[Camera] Face DETECTED! Score:", detection.score);
+            }
+          } catch (detectErr: any) {
+            console.error("[Camera] Face detection error:", detectErr.message);
+          }
+          if (!detection) {
+            attempts++;
+            await new Promise((resolve) => setTimeout(resolve, 600));
+          }
+        }
+
+        // Step 6: Cleanup
+        stream.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+        document.body.removeChild(video);
+        console.log("[Camera] Camera stopped and cleaned up.");
+
+        if (!detection) {
+          console.warn("[Camera] Face NOT detected after all attempts.");
+          setError("لم يتم التعرف على وجهك. يرجى الجلوس أمام الكاميرا بشكل واضح وإضاءة جيدة لدخول الاختبار.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      setError("");
+      
       // Validated. Enter Exam!
       // Parameters are needed by experiment components to set up the simulation.
-      // Answer verification is handled server-side by submit_exam_result RPC.
       onJoin({
         experiment: exam.experiment_name,
         code: exam.session_code,
@@ -423,7 +456,7 @@ function SessionCodePage({ onBack, onJoin }) {
         startTime: exam.started_at,
         parameters: exam.parameters || {},
       });
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       setLoading(false);
     }
@@ -467,7 +500,7 @@ function SessionCodePage({ onBack, onJoin }) {
                 onClick={handleLaunchSeb}
                 className="auth-submit-btn student-entry-seb-btn-launch"
               >
-                🚀 فتح الامتحان في المتصفح الآمن 
+                🚀 فتح الامتحان في المتصفح الآمن
               </button>
 
               <a
@@ -522,7 +555,7 @@ function SessionCodePage({ onBack, onJoin }) {
                     disabled={loading}
                     className="student-entry-forgot-btn"
                   >
-                   طلب كلمة المرور
+                    طلب كلمة المرور
                   </button>
                 </label>
                 <div className="student-entry-input-wrapper">

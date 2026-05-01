@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Users, Save, CheckCircle2, Camera, X, Printer } from "lucide-react";
+import { ArrowLeft, Users, Save, Camera, Printer, X } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
-import "../../styles/components/StudentResultsPage.css";
+import "./StudentResultsPage.css";
+import "./tables.css";
 
 
-function StudentResultsPage({ instructorId, onBack }) {
-  const [results, setResults] = useState([]);
+function StudentResultsPage({ instructorId, onBack }: { instructorId: any; onBack: any }) {
+  const [results, setResults] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
 
   // Proctoring Modal State
   const [proctoringModalOpen, setProctoringModalOpen] = useState(false);
-  const [proctoringImages, setProctoringImages] = useState([]);
+  const [proctoringImages, setProctoringImages] = useState<any[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
@@ -37,13 +38,13 @@ function StudentResultsPage({ instructorId, onBack }) {
     fetchResults();
   }, []);
 
-  const handleGradeChange = (index, value) => {
+  const handleGradeChange = (index: any, value: any) => {
     const newResults = [...results];
     newResults[index].instructor_grade = value;
     setResults(newResults);
   };
 
-  const saveSingleGrade = async (index, req) => {
+  const saveSingleGrade = async (index: any, req: any) => {
     if (!req.instructor_grade) return;
     try {
       const { error } = await supabase
@@ -56,15 +57,13 @@ function StudentResultsPage({ instructorId, onBack }) {
       const newResults = [...results];
       newResults[index]._originalGrade = req.instructor_grade;
       setResults(newResults);
-      setSavedMessage(true);
-      setTimeout(() => setSavedMessage(false), 3000);
     } catch (err) {
       console.error("Error saving grade:", err);
       alert("حدث خطأ أثناء حفظ التقييم.");
     }
   };
 
-  const fetchProctoringImages = async (req) => {
+  const fetchProctoringImages = async (req: any) => {
     setSelectedStudent(req.student_name);
     setProctoringModalOpen(true);
     setLoadingImages(true);
@@ -107,13 +106,13 @@ function StudentResultsPage({ instructorId, onBack }) {
     }
   };
 
-  const handlePrintPdf = (req) => {
+  const handlePrintPdf = (req: any) => {
     const finalGrade = req.instructor_grade ? req.instructor_grade : "لم يتم التقييم بعد";
     
     // Extracting a simpler string if student_result is JSON
     let studentResultDisplay = req.student_result;
     try {
-      if (studentResultDisplay.includes("{")) {
+      if (studentResultDisplay?.includes("{")) {
         const obj = JSON.parse(studentResultDisplay);
         if (obj.avg !== undefined) {
           studentResultDisplay = `${obj.avg} ${req.unit || ""}`;
@@ -123,7 +122,9 @@ function StudentResultsPage({ instructorId, onBack }) {
           studentResultDisplay = `${studentResultDisplay} ${req.unit || ""}`;
         }
       }
-    } catch {}
+    } catch {
+      /* ignore */
+    }
 
     const htmlContent = `
       <html dir="rtl" lang="ar">
@@ -189,14 +190,16 @@ function StudentResultsPage({ instructorId, onBack }) {
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+    }
 
     setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 1000);
@@ -278,38 +281,61 @@ function StudentResultsPage({ instructorId, onBack }) {
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
 
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(htmlContent);
-    doc.close();
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+    }
 
     setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
       setTimeout(() => {
         document.body.removeChild(iframe);
       }, 1000);
     }, 500);
   };
 
-  const renderResultData = (dataStr, unit, isStudent, req) => {
+  const renderResultData = (dataStr: any, unit: any, isStudent: any, req: any) => {
     if (!dataStr) return "";
+
+    // Check if student is disconnected (ping timeout)
+    let isDisconnected = false;
+    if (req && req.student_result === "جاري الاختبار...") {
+      try {
+        let lastPing = null;
+        if (req.unit && !isNaN(parseInt(req.unit))) {
+          lastPing = parseInt(req.unit);
+        } else if (req.created_at) {
+          lastPing = new Date(req.created_at).getTime();
+        }
+        if (lastPing && Date.now() - lastPing > 45000) {
+          isDisconnected = true;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Hide actual result if exam is not completed properly
+    if (!isStudent && dataStr === "سيظهر بعد التسليم") {
+      if (req && (req.student_result === "--quit--" || req.student_result === "--kicked--" || req.student_result === "--" || isDisconnected)) {
+        return <span style={{ color: "var(--text-muted)" }}>-- (لم يكتمل)</span>;
+      }
+    }
+
+    // Prevent displaying timestamp as a unit string
+    let displayUnit = unit || "";
+    if (displayUnit && !isNaN(parseInt(displayUnit)) && displayUnit.length > 10) {
+      displayUnit = "";
+    }
+
     if (dataStr === "--") return <span style={{ color: "#ef4444" }}>-- (انتهى الوقت)</span>;
     if (dataStr === "--kicked--") return <span style={{ color: "#ef4444", fontWeight: "bold" }}>غياب الكاميرا</span>;
     if (dataStr === "--quit--") return <span style={{ color: "#f59e0b", fontWeight: "bold" }}>منسحب (Withdrawn)</span>;
     
     if (dataStr === "جاري الاختبار...") {
-      let isDisconnected = false;
-      try {
-        if (req && req.unit && !isNaN(parseInt(req.unit))) {
-          const lastPing = parseInt(req.unit);
-          // If no ping for more than 45 seconds, assume student forcefully closed SEB or lost connection
-          if (Date.now() - lastPing > 45000) {
-            isDisconnected = true;
-          }
-        }
-      } catch {}
-      
       if (isDisconnected) {
         return <span style={{ color: "#f59e0b", fontWeight: "bold" }}>منسحب (فقد الاتصال) ⚠️</span>;
       }
@@ -318,7 +344,8 @@ function StudentResultsPage({ instructorId, onBack }) {
 
     try {
       const obj = JSON.parse(dataStr);
-      if (obj && obj.table) {
+      const tableData = obj?.table;
+      if (obj && tableData) {
         return (
           <div
             style={{
@@ -334,7 +361,7 @@ function StudentResultsPage({ instructorId, onBack }) {
                 color: isStudent ? "#10b981" : "var(--text-muted)",
               }}
             >
-              Avg: {obj.avg} {unit}
+              Avg: {obj.avg} {displayUnit}
             </span>
             <table
               style={{
@@ -389,7 +416,7 @@ function StudentResultsPage({ instructorId, onBack }) {
                     η
                   </th>
                 </tr>
-                {obj.table.map((row, i) => (
+                {tableData.map((row: any, i: any) => (
                   <tr key={i}>
                     <td
                       style={{
@@ -453,13 +480,13 @@ function StudentResultsPage({ instructorId, onBack }) {
             : "var(--text-muted)",
         }}
       >
-        {dataStr} {unit}
+        {dataStr} {displayUnit}
       </span>
     );
   };
 
   return (
-    <div className="app-container" style={{ background: "var(--bg-main)", flexDirection: "column" }}>
+    <div className="app-container" style={{ background: "var(--bg-main)", flexDirection: "column", overflowY: "auto" }}>
       {/* Top Header */}
       <header className="results-header-container">
         <div className="results-header-content">

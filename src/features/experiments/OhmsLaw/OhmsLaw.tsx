@@ -7,8 +7,8 @@ import {
   XCircle,
   RefreshCw,
 } from "lucide-react";
-import "../../styles/components/OhmsLaw.css";
-import { ExamConfig } from "../../layouts/StudentLabLayout";
+import "./OhmsLaw.css";
+import { ExamConfig } from "../../../layouts/StudentLabLayout";
 
 // Standard E12 series resistor values suitable for lab experiments (Ohms)
 const STANDARD_RESISTORS = [

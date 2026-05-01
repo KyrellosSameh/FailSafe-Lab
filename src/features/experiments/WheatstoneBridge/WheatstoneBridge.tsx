@@ -6,8 +6,8 @@ import {
   XCircle,
   TriangleRight,
 } from "lucide-react";
-import "../../styles/components/WheatstoneBridge.css";
-import { ExamConfig } from "../../layouts/StudentLabLayout";
+import "./WheatstoneBridge.css";
+import { ExamConfig } from "../../../layouts/StudentLabLayout";
 
 const STANDARD_RESISTORS = [
   10, 22, 33, 47, 56, 68, 100, 150, 220, 330, 470, 560, 680, 1000,

@@ -202,12 +202,7 @@
 .live-reading-value.force { color: #ef4444; }
 .live-reading-value.disp { color: #f59e0b; text-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
 
-/* Responsive adjustments inside HookesLaw */
-@media (max-width: 900px) {
-  .hookes-law-grid {
-    grid-template-columns: 1fr;
-  }
-}
+
 .hookes-law-eval-panel {
   padding: 24px;
   background: rgba(0,0,0,0.2);

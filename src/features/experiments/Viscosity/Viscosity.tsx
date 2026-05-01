@@ -7,8 +7,8 @@ import {
   Crosshair,
   RefreshCw
 } from "lucide-react";
-import "../../styles/components/Viscosity.css";
-import { ExamConfig } from "../../layouts/StudentLabLayout";
+import "./Viscosity.css";
+import { ExamConfig } from "../../../layouts/StudentLabLayout";
 
 interface ViscosityBall {
   id: number;
@@ -37,7 +37,7 @@ interface ViscosityProps {
 }
 
 export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps) {
-  // 5-minute submission lock
+  // 1-minute submission lock
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
   const [balls, setBalls] = useState<ViscosityBall[]>(() => {
     const arr: ViscosityBall[] = [];
     if (examConfig && examConfig.parameters && examConfig.parameters.viscosityBalls) {
-      examConfig.parameters.viscosityBalls.forEach((d, i) => {
+      examConfig.parameters.viscosityBalls.forEach((d: number, i: number) => {
         arr.push({
           id: i + 1,
           dTrue: d,
@@ -155,18 +155,19 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
   // Manual Micrometer State
   const [micrometerGap, setMicrometerGap] = useState<number>(25.0);
   
-  // --- VISCOSITY LOGIC (STOKES' LAW) ---
-  const [isDropping, setIsDropping] = useState<boolean>(false);
-  const [liveTime, setLiveTime] = useState<number>(0);
 
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const timeAtTopMarkRef = useRef<number>(0);
   const timeAtBottomMarkRef = useRef<number>(0);
   const micrometerSliderRef = useRef<HTMLInputElement>(null);
 
+  // Direct DOM refs to avoid 60fps React renders
+  const ballRef = useRef<HTMLDivElement>(null);
+  const stopwatchRef = useRef<HTMLDivElement>(null);
+  const messageStateRef = useRef<string>("idle");
+
   const [simState, setSimState] = useState<"idle" | "running">("idle");
-  const [dropPosition, setDropPosition] = useState<number>(0);
 
   const terminalVelocity = useMemo(() => (
     (2 *
@@ -187,16 +188,23 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
 
     const elapsedS = (time - startTimeRef.current) / 1000;
     const currentPosMeters = elapsedS * terminalVelocity;
+    const pos = Math.min(currentPosMeters, maxDistanceMeters);
 
-    setDropPosition(Math.min(currentPosMeters, maxDistanceMeters));
+    // Direct DOM mutation
+    if (ballRef.current) ballRef.current.style.top = `${pos * 100}%`;
 
     if (currentPosMeters >= topMarkMeters && !timeAtTopMarkRef.current) {
       timeAtTopMarkRef.current = elapsedS;
     }
 
     if (timeAtTopMarkRef.current && currentPosMeters < bottomMarkMeters) {
-      setLiveTime(elapsedS - timeAtTopMarkRef.current);
-      setSimMessage("Stopwatch: Running...");
+      // Direct DOM mutation for stopwatch
+      if (stopwatchRef.current) stopwatchRef.current.innerText = `${(elapsedS - timeAtTopMarkRef.current).toFixed(2)} s`;
+      
+      if (messageStateRef.current !== "running") {
+        messageStateRef.current = "running";
+        setSimMessage("Stopwatch: Running...");
+      }
     } else if (currentPosMeters >= bottomMarkMeters && !timeAtBottomMarkRef.current) {
       timeAtBottomMarkRef.current = elapsedS;
 
@@ -204,7 +212,9 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
       const error = Math.random() * 0.1 * (Math.random() > 0.5 ? 1 : -1);
       let tMeasured = Math.max(0.1, tTrue + error);
 
-      setLiveTime(tMeasured);
+      if (stopwatchRef.current) stopwatchRef.current.innerText = `${tMeasured.toFixed(2)} s`;
+      
+      messageStateRef.current = "stopped";
       setSimMessage(`Stopwatch stopped at ${tMeasured.toFixed(2)} s`);
 
       setBalls((prev) =>
@@ -218,7 +228,7 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
       requestRef.current = requestAnimationFrame(animate);
     } else {
       setSimState("idle");
-      setDropPosition(maxDistanceMeters);
+      if (ballRef.current) ballRef.current.style.top = `${maxDistanceMeters * 100}%`;
     }
   }, [activeBallId, terminalVelocity]);
 
@@ -233,11 +243,12 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
 
   const handleDrop = () => {
     setSimState("running");
-    setDropPosition(0);
-    setLiveTime(0);
+    if (stopwatchRef.current) stopwatchRef.current.innerText = "0.00 s";
+    if (ballRef.current) ballRef.current.style.top = "0%";
     startTimeRef.current = 0;
     timeAtTopMarkRef.current = 0;
     timeAtBottomMarkRef.current = 0;
+    messageStateRef.current = "dropping";
     setSimMessage("Ball dropping...");
   };
 
@@ -647,6 +658,7 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
                 Stopwatch
               </div>
               <div
+                ref={stopwatchRef}
                 className="device-display"
                 aria-live="polite"
                 aria-atomic="true"
@@ -658,7 +670,7 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
                   fontSize: "1.2rem",
                 }}
               >
-                {liveTime.toFixed(2)} s
+                0.00 s
               </div>
             </div>
             <div className="viscosity-sim-message" aria-live="polite">
@@ -762,9 +774,10 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
               </div>
 
               <div
+                ref={ballRef}
                 style={{
                   position: "absolute",
-                  top: `${dropPosition * 100}%`,
+                  top: `0%`,
                   left: "50%",
                   transform: "translate(-50%, -50%)",
                   width: `${activeBall.radiusMeters * 2000}px`,
@@ -812,8 +825,6 @@ export default function Viscosity({ examConfig, onSubmitResult }: ViscosityProps
                       if (simState === "idle") {
                         setActiveBallId(b.id);
                         setMicrometerGap(25.0); // Reset micrometer
-                        setDropPosition(0);
-                        setLiveTime(0);
                         setSimMessage("Ready to drop.");
                       }
                     }}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   LogOut,
   PlusCircle,
@@ -6,12 +6,20 @@ import {
   Activity,
   GraduationCap,
   ClipboardList,
-  TrendingUp,
   ShieldAlert,
   CheckCircle,
   Bell,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import "./InstructorDashboard.css";
+
+interface InstructorDashboardProps {
+  instructorId: string | number;
+  onBack: () => void;
+  onCreateExam: () => void;
+  onViewResults: () => void;
+  username: string;
+}
 
 function InstructorDashboard({
   instructorId,
@@ -19,11 +27,10 @@ function InstructorDashboard({
   onCreateExam,
   onViewResults,
   username,
-}) {
+}: InstructorDashboardProps) {
   const [stats, setStats] = useState({ totalExams: 0, totalStudents: 0 });
-  const [alerts, setAlerts] = useState([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const audioRef = useRef(null);
 
   // Fetch stats
   useEffect(() => {
@@ -45,7 +52,7 @@ function InstructorDashboard({
       }
     };
     fetchStats();
-  }, []);
+  }, [instructorId]);
 
   // Fetch existing alerts
   useEffect(() => {
@@ -59,12 +66,10 @@ function InstructorDashboard({
           .limit(50);
 
         if (!error && data) {
-          // Enrich alerts with snapshot URLs
           const enriched = await Promise.all(
             data.map(async (alert) => {
               let snapshotUrl = null;
               if (alert.snapshot_path) {
-                // Try proctor_alerts bucket first, then exam_snapshots
                 const { data: urlData } = supabase.storage
                   .from("exam_snapshots")
                   .getPublicUrl(
@@ -77,7 +82,6 @@ function InstructorDashboard({
                   snapshotUrl = urlData.publicUrl;
                 }
 
-                // Also try direct path in exam_snapshots
                 if (!snapshotUrl || snapshotUrl.includes("undefined")) {
                   const { data: urlData2 } = supabase.storage
                     .from("exam_snapshots")
@@ -105,10 +109,11 @@ function InstructorDashboard({
   // Play alert beep sound
   const playAlertSound = () => {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
 
-      // Create a beep sequence: beep-beep-beep
-      const playBeep = (startTime, freq = 880) => {
+      const playBeep = (startTime: number, freq = 880) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
@@ -142,8 +147,6 @@ function InstructorDashboard({
           filter: `instructor_id=eq.${instructorId}`,
         },
         async (payload) => {
-
-
           const newAlert = payload.new;
           let snapshotUrl = null;
 
@@ -157,11 +160,8 @@ function InstructorDashboard({
           }
 
           const enrichedAlert = { ...newAlert, snapshotUrl };
-
           setAlerts((prev) => [enrichedAlert, ...prev]);
           setUnreadCount((prev) => prev + 1);
-
-          // Play alert sound
           playAlertSound();
         },
       )
@@ -172,10 +172,7 @@ function InstructorDashboard({
     };
   }, [instructorId]);
 
-
-
-  // Mark alert as read
-  const handleDismissAlert = async (alertId) => {
+  const handleDismissAlert = async (alertId: any) => {
     try {
       const { error } = await supabase
         .from("proctor_alerts")
@@ -188,13 +185,12 @@ function InstructorDashboard({
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error dismissing alert:", err);
     }
   };
 
-  // Format time
-  const formatTime = (timestamp) => {
+  const formatTime = (timestamp: any) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
     return date.toLocaleTimeString("ar-EG", {
@@ -204,146 +200,51 @@ function InstructorDashboard({
     });
   };
 
-  const handleLogout = () => {
-    onBack();
-  };
-
   return (
-    <div
-      className="app-container"
-      style={{
-        background: "#090d19",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Top Navbar */}
-      <nav
-        style={{
-          padding: "20px 40px",
-          background: "rgba(17, 24, 39, 0.8)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              padding: "10px",
-              borderRadius: "12px",
-              color: "white",
-              boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)",
-            }}
-          >
+    <div className="instructor-dashboard">
+      <nav className="id-navbar">
+        <div className="id-logo-section">
+          <div className="id-logo-icon">
             <GraduationCap size={28} />
           </div>
-          <div>
-            <h1
-              style={{
-                fontSize: "1.6rem",
-                fontWeight: 600,
-                margin: 0,
-                color: "#f8fafc",
-                letterSpacing: "-0.5px",
-              }}
-            >
-              بوابة إدارة المختبر
-            </h1>
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
-              Instructor Portal v2.0
-            </span>
+          <div className="id-logo-text">
+            <h1>بوابة إدارة المختبر</h1>
+            <span>Instructor Portal v2.0</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-          {/* Alert bell indicator */}
+        <div className="id-user-section">
           {unreadCount > 0 && (
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 16px",
-                borderRadius: "10px",
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.3)",
-                animation: "proctorBadgePulse 2s ease-in-out infinite",
-              }}
-            >
+            <div className="id-notification-badge" style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              animation: "proctorBadgePulse 2s ease-in-out infinite",
+            }}>
               <Bell size={18} color="#ef4444" />
-              <span
-                style={{
-                  color: "#fca5a5",
-                  fontWeight: 600,
-                  fontSize: "0.9rem",
-                }}
-              >
+              <span style={{ color: "#fca5a5", fontWeight: 600, fontSize: "0.9rem" }}>
                 {unreadCount} تنبيه مراقبة
               </span>
             </div>
           )}
 
-          <div
-            style={{
-              textAlign: "right",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            <span
-              style={{ fontSize: "1rem", fontWeight: 500, color: "#e2e8f0" }}
-            >
-              {username || "د. محمد"}
-            </span>
-            <span style={{ fontSize: "0.8rem", color: "#818cf8" }}>
-              أستاذ المادة
-            </span>
+          <div className="id-user-info">
+            <span className="id-user-name">{username || "الأستاذ"}</span>
+            <span className="id-user-role">أستاذ المادة</span>
           </div>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
-              color: "#f87171",
-              borderRadius: "8px",
-              padding: "10px 16px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontWeight: 500,
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")
-            }
-          >
+          
+          <button onClick={onBack} className="id-logout-btn">
             <LogOut size={18} />
             <span>تسجيل الخروج</span>
           </button>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main
-        style={{
-          padding: "40px",
-          maxWidth: "1200px",
-          margin: "0 auto",
-          width: "100%",
-          flex: 1,
-        }}
-      >
-        {/* ═══ PROCTOR ALERTS SECTION ═══ */}
+      <main className="id-main-content">
         {alerts.length > 0 && (
           <div className="proctor-alerts-section">
             <div className="proctor-alerts-header">
@@ -358,95 +259,49 @@ function InstructorDashboard({
 
             <div className="proctor-alerts-grid">
               {alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`proctor-alert-card ${alert.is_read ? "read" : ""}`}
-                >
+                <div key={alert.id} className={`proctor-alert-card ${alert.is_read ? "read" : ""}`}>
                   <div className="proctor-alert-top">
                     <div className="proctor-alert-student">
                       <span className="proctor-alert-name">
-                        {alert.is_read ? "✓" : "🔴"}{" "}
-                        {alert.student_name || "طالب غير معروف"}
+                        {alert.is_read ? "✓" : "🔴"} {alert.student_name || "طالب غير معروف"}
                       </span>
                       <span className="proctor-alert-id">
                         ID: {alert.student_id} | كود: {alert.exam_code}
                       </span>
                     </div>
-                    <span className="proctor-alert-time">
-                      {formatTime(alert.created_at)}
-                    </span>
+                    <span className="proctor-alert-time">{formatTime(alert.created_at)}</span>
                   </div>
 
-                  <div
-                    style={{
-                      padding: "10px 14px",
-                      borderRadius: "8px",
-                      background: alert.alert_type === "browser_closed"
-                        ? "rgba(239, 68, 68, 0.12)"
-                        : alert.alert_type === "tab_switch"
-                        ? "rgba(245, 158, 11, 0.1)"
-                        : "rgba(239, 68, 68, 0.08)",
-                      color: alert.alert_type === "browser_closed"
-                        ? "#fca5a5"
-                        : alert.alert_type === "tab_switch"
-                        ? "#fcd34d"
-                        : "#fca5a5",
-                      fontSize: "0.85rem",
-                      lineHeight: 1.6,
-                      direction: "rtl",
-                    }}
-                  >
+                  <div className="proctor-alert-message" style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    background: "rgba(255,255,255,0.03)",
+                    fontSize: "0.85rem",
+                    lineHeight: 1.6,
+                    direction: "rtl"
+                  }}>
                     {alert.alert_type === "browser_closed" ? (
-                      <>
-                        🚨 <strong>أغلق المتصفح أو غلق صفحة الامتحان كلياً!</strong>
-                        <br />
-                        <span style={{ opacity: 0.85 }}>الطالب خرج من الامتحان بإغلاق المتصفح أو التاب.</span>
-                      </>
+                      <><strong style={{color: "#fca5a5"}}>🚨 أغلق المتصفح كلياً!</strong><br/>الطالب خرج من الامتحان بإغلاق المتصفح أو التاب.</>
                     ) : alert.alert_type === "tab_switch" ? (
-                      <>
-                        ⚠️ <strong>غادر الطالب صفحة الامتحان مؤقتاً</strong>
-                        <br />
-                        <span style={{ opacity: 0.85 }}>تبديل تاب أو نافذة — قد يكون عاد بعدها.</span>
-                      </>
-                    ) : alert.alert_type === "tab_left" ? (
-                      <>
-                        ⚠️ الطالب خرج من صفحة الامتحان أو أغلق المتصفح (قد يكون
-                        تم تبديل النوافذ).
-                      </>
+                      <><strong style={{color: "#fcd34d"}}>⚠️ غادر صفحة الامتحان مؤقتاً</strong><br/>تبديل تاب أو نافذة.</>
                     ) : (
-                      <>
-                        ⚠️ الطالب غاب عن الكاميرا لأكثر من 30 ثانية. تم إنهاء
-                        الامتحان تلقائياً.
-                      </>
+                      <><strong style={{color: "#fca5a5"}}>⚠️ غياب عن الكاميرا</strong><br/>الطالب غاب عن الكاميرا لأكثر من 30 ثانية.</>
                     )}
                   </div>
 
-                  {/* Snapshot */}
                   {alert.snapshotUrl && (
                     <img
                       src={alert.snapshotUrl}
                       alt="لقطة غياب الطالب"
                       className="proctor-alert-snapshot"
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                      }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}
 
                   <div className="proctor-alert-actions">
                     {!alert.is_read && (
-                      <button
-                        className="proctor-alert-btn proctor-alert-btn--dismiss"
-                        onClick={() => handleDismissAlert(alert.id)}
-                      >
-                        <CheckCircle
-                          size={14}
-                          style={{
-                            display: "inline",
-                            verticalAlign: "middle",
-                            marginLeft: "6px",
-                          }}
-                        />
+                      <button className="proctor-alert-btn" onClick={() => handleDismissAlert(alert.id)}>
+                        <CheckCircle size={14} style={{ marginLeft: "6px", verticalAlign: "middle" }} />
                         تم المراجعة
                       </button>
                     )}
@@ -457,348 +312,53 @@ function InstructorDashboard({
           </div>
         )}
 
-        {/* Welcome & Stats Row */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "revert",
-            gap: "24px",
-            marginBottom: "40px",
-          }}
-        >
-          <div
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1))",
-              border: "1px solid rgba(99, 102, 241, 0.2)",
-              borderRadius: "20px",
-              padding: "30px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  fontSize: "2rem",
-                  color: "#fff",
-                  marginBottom: "10px",
-                }}
-              >
-                مرحباً بك مجدداً
-              </h2>
-              <p
-                style={{
-                  color: "#94a3b8",
-                  fontSize: "1.1rem",
-                  maxWidth: "500px",
-                }}
-              >
-                يمكنك من خلال لوحة التحكم متابعة أداء طلابك وإعداد تجارب معملية
-                جديدة بسهولة وأمان.
-              </p>
+        <div className="id-welcome-banner">
+          <div className="id-welcome-content">
+            <h2>مرحباً بك مجدداً</h2>
+            <p>يمكنك من خلال لوحة التحكم متابعة أداء طلابك وإعداد تجارب معملية جديدة بسهولة وأمان.</p>
+          </div>
+        </div>
+
+        <div className="id-stats-grid">
+          <div className="id-stat-card">
+            <div className="id-stat-icon blue"><ClipboardList size={32} /></div>
+            <div className="id-stat-info">
+              <p>اختبارات مفتوحة</p>
+              <h3>{stats.totalExams}</h3>
+            </div>
+          </div>
+
+          <div className="id-stat-card">
+            <div className="id-stat-icon green"><Users size={32} /></div>
+            <div className="id-stat-info">
+              <p>إجمالي الطلاب</p>
+              <h3>{stats.totalStudents}</h3>
+            </div>
+          </div>
+
+          <div className="id-stat-card">
+            <div className="id-stat-icon red"><ShieldAlert size={32} /></div>
+            <div className="id-stat-info">
+              <p>تنبيهات المراقبة</p>
+              <h3>{unreadCount > 0 ? unreadCount : "لا يوجد"}</h3>
             </div>
           </div>
         </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "24px",
-            marginBottom: "40px",
-          }}
-        >
-          {/* Stat 1 */}
-          <div
-            className="glass-panel"
-            style={{
-              padding: "24px",
-              display: "flex",
-              alignItems: "center",
-              gap: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <div
-              style={{
-                padding: "16px",
-                background: "rgba(59, 130, 246, 0.1)",
-                color: "#3b82f6",
-                borderRadius: "12px",
-              }}
-            >
-              <ClipboardList size={32} />
-            </div>
-            <div>
-              <p
-                style={{
-                  color: "#94a3b8",
-                  fontSize: "0.9rem",
-                  marginBottom: "4px",
-                }}
-              >
-                اختبارات مفتوحة
-              </p>
-              <h3 style={{ fontSize: "1.8rem", color: "#fff" }}>
-                {stats.totalExams}
-              </h3>
+        <div className="id-actions-grid">
+          <div className="id-action-card primary" onClick={onCreateExam}>
+            <div className="id-action-icon"><PlusCircle size={40} /></div>
+            <div className="id-action-content">
+              <h3>إنشاء اختبار جديد</h3>
+              <p>توليد كود جلسة مؤمن وتحديد المعاملات الفيزيائية لبدء امتحان للطلاب.</p>
             </div>
           </div>
 
-          {/* Stat 2 */}
-          <div
-            className="glass-panel"
-            style={{
-              padding: "24px",
-              display: "flex",
-              alignItems: "center",
-              gap: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <div
-              style={{
-                padding: "16px",
-                background: "rgba(16, 185, 129, 0.1)",
-                color: "#10b981",
-                borderRadius: "12px",
-              }}
-            >
-              <Users size={32} />
-            </div>
-            <div>
-              <p
-                style={{
-                  color: "#94a3b8",
-                  fontSize: "0.9rem",
-                  marginBottom: "4px",
-                }}
-              >
-                إجمالي الطلاب المُختبرين
-              </p>
-              <h3 style={{ fontSize: "1.8rem", color: "#fff" }}>
-                {stats.totalStudents}
-              </h3>
-            </div>
-          </div>
-
-          {/* Stat 3 - Alerts count */}
-          <div
-            className="glass-panel"
-            style={{
-              padding: "24px",
-              display: "flex",
-              alignItems: "center",
-              gap: "20px",
-              borderRadius: "16px",
-            }}
-          >
-            <div
-              style={{
-                padding: "16px",
-                background:
-                  unreadCount > 0
-                    ? "rgba(239, 68, 68, 0.1)"
-                    : "rgba(245, 158, 11, 0.1)",
-                color: unreadCount > 0 ? "#ef4444" : "#f59e0b",
-                borderRadius: "12px",
-              }}
-            >
-              <ShieldAlert size={32} />
-            </div>
-            <div>
-              <p
-                style={{
-                  color: "#94a3b8",
-                  fontSize: "0.9rem",
-                  marginBottom: "4px",
-                }}
-              >
-                تنبيهات المراقبة
-              </p>
-              <h3
-                style={{
-                  fontSize: "1.8rem",
-                  color: unreadCount > 0 ? "#ef4444" : "#fff",
-                }}
-              >
-                {unreadCount > 0 ? unreadCount : "لا يوجد"}
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        {/* Primary Actions */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-            gap: "30px",
-          }}
-        >
-          {/* Create Exam */}
-          <div
-            onClick={onCreateExam}
-            style={{
-              padding: "40px",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
-              borderRadius: "24px",
-              background:
-                "linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)",
-              cursor: "pointer",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-8px)";
-              e.currentTarget.style.boxShadow =
-                "0 20px 40px rgba(99, 102, 241, 0.2)";
-              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "none";
-              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)";
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: "-20px",
-                right: "-20px",
-                background: "rgba(99, 102, 241, 0.1)",
-                width: "150px",
-                height: "150px",
-                borderRadius: "50%",
-                filter: "blur(30px)",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "24px",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              <div
-                style={{
-                  padding: "20px",
-                  background: "rgba(99, 102, 241, 0.15)",
-                  borderRadius: "16px",
-                  color: "#818cf8",
-                  boxShadow: "inset 0 0 20px rgba(99, 102, 241, 0.1)",
-                }}
-              >
-                <PlusCircle size={40} strokeWidth={1.5} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3
-                  style={{
-                    fontSize: "1.6rem",
-                    color: "#fff",
-                    marginBottom: "12px",
-                  }}
-                >
-                  إنشاء اختبار جديد
-                </h3>
-                <p
-                  style={{
-                    color: "#94a3b8",
-                    lineHeight: "1.6",
-                    fontSize: "1.05rem",
-                  }}
-                >
-                  توليد كود جلسة مؤمن وتحديد المعاملات الفيزيائية لبدء امتحان
-                  للطلاب.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* View Results */}
-          <div
-            onClick={onViewResults}
-            style={{
-              padding: "40px",
-              border: "1px solid rgba(16, 185, 129, 0.3)",
-              borderRadius: "24px",
-              background:
-                "linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)",
-              cursor: "pointer",
-              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              position: "relative",
-              overflow: "hidden",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-8px)";
-              e.currentTarget.style.boxShadow =
-                "0 20px 40px rgba(16, 185, 129, 0.15)";
-              e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.6)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "none";
-              e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.3)";
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: "-20px",
-                right: "-20px",
-                background: "rgba(16, 185, 129, 0.05)",
-                width: "150px",
-                height: "150px",
-                borderRadius: "50%",
-                filter: "blur(30px)",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "24px",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              <div
-                style={{
-                  padding: "20px",
-                  background: "rgba(16, 185, 129, 0.15)",
-                  borderRadius: "16px",
-                  color: "#34d399",
-                  boxShadow: "inset 0 0 20px rgba(16, 185, 129, 0.1)",
-                }}
-              >
-                <Activity size={40} strokeWidth={1.5} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3
-                  style={{
-                    fontSize: "1.6rem",
-                    color: "#fff",
-                    marginBottom: "12px",
-                  }}
-                >
-                  سجل النتائج والتقييم
-                </h3>
-                <p
-                  style={{
-                    color: "#94a3b8",
-                    lineHeight: "1.6",
-                    fontSize: "1.05rem",
-                  }}
-                >
-                  مراجعة درجات الطلاب، التحقق من الإجابات المعملية، ورصد
-                  التقييمات النهائية.
-                </p>
-              </div>
+          <div className="id-action-card secondary" onClick={onViewResults}>
+            <div className="id-action-icon"><Activity size={40} /></div>
+            <div className="id-action-content">
+              <h3>سجل النتائج والتقييم</h3>
+              <p>مراجعة درجات الطلاب، التحقق من الإجابات المعملية، ورصد التقييمات النهائية.</p>
             </div>
           </div>
         </div>
@@ -808,3 +368,4 @@ function InstructorDashboard({
 }
 
 export default InstructorDashboard;
+
